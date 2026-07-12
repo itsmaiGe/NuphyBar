@@ -29,5 +29,6 @@ let package = Package(
             dependencies: ["AgentLightCore", "AgentLightHID"]
         ),
         .testTarget(name: "AgentLightCoreTests", dependencies: ["AgentLightCore"]),
+        .testTarget(name: "AgentLightHIDTests", dependencies: ["AgentLightHID"]),
     ]
 )

@@ -3,7 +3,7 @@ import CoreGraphics
 import Foundation
 import IOKit.hid
 
-public enum Air60HIDError: Error, CustomStringConvertible {
+public enum Air60HIDError: LocalizedError, CustomStringConvertible {
     case managerOpenFailed(IOReturn)
     case deviceNotConnected
     case deviceOpenFailed(IOReturn)
@@ -15,6 +15,15 @@ public enum Air60HIDError: Error, CustomStringConvertible {
         case .deviceNotConnected: return "NuPhy Air60 V2-1 is not connected over Bluetooth"
         case .deviceOpenFailed(let status): return "could not open the keyboard (0x\(String(status, radix: 16)))"
         case .reportFailed(let status): return "sending a keyboard report failed (0x\(String(status, radix: 16)))"
+        }
+    }
+
+    public var errorDescription: String? {
+        switch self {
+        case .managerOpenFailed: return "无法访问 macOS HID 设备管理器"
+        case .deviceNotConnected: return "NuPhy Air60 V2-1 未通过蓝牙连接"
+        case .deviceOpenFailed: return "无法打开 NuPhy Air60 V2-1；设备可能正在重新连接"
+        case .reportFailed: return "无法向 NuPhy Air60 V2-1 发送灯光状态"
         }
     }
 }
@@ -45,18 +54,20 @@ public final class Air60HIDTransport {
     }
 
     public func send(_ command: AgentLightCommand) throws {
-        let capsLockOn = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlphaShift)
-        let frame = WireFrame.encode(command)
-        let masks = HIDReportEncoder.encode(frame, capsLockOn: capsLockOn)
-        let capsMask: UInt8 = capsLockOn ? 0x02 : 0x00
+        try AgentLightTransmissionLock().withLock {
+            let capsLockOn = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlphaShift)
+            let masks = CompactStatusEncoder.encode(command, capsLockOn: capsLockOn)
+                ?? HIDReportEncoder.encode(WireFrame.encode(command), capsLockOn: capsLockOn)
+            let capsMask: UInt8 = capsLockOn ? 0x02 : 0x00
 
-        try withDevice { device in
-            for (index, mask) in masks.enumerated() {
-                try setOutputReport(mask, on: device)
-                Thread.sleep(forTimeInterval: index < 2 ? wakeInterval : bitInterval)
+            try withDevice { device in
+                for (index, mask) in masks.enumerated() {
+                    try setOutputReport(mask, on: device)
+                    Thread.sleep(forTimeInterval: index < 2 ? wakeInterval : bitInterval)
+                }
+                Thread.sleep(forTimeInterval: 0.030)
+                try setOutputReport(capsMask, on: device)
             }
-            Thread.sleep(forTimeInterval: 0.030)
-            try setOutputReport(capsMask, on: device)
         }
     }
 

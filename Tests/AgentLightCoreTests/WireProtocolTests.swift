@@ -39,3 +39,13 @@ func completionDurationFrame() throws {
 
     #expect(try WireFrame.decode(encoded) == .completionDuration(seconds: 12))
 }
+
+@Test("frequent status commands use an eight-report BLE frame")
+func compactStatusFrame() {
+    let reports = CompactStatusEncoder.encode(.progress(3), capsLockOn: true)
+
+    #expect(reports?.count == 8)
+    #expect(reports?.allSatisfy { $0 & 0x02 == 0x02 } == true)
+    #expect(reports == [0x02, 0x03, 0x06, 0x07, 0x02, 0x07, 0x06, 0x02])
+    #expect(CompactStatusEncoder.encode(.color(red: 1, green: 2, blue: 3), capsLockOn: false) == nil)
+}

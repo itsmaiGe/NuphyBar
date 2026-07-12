@@ -110,3 +110,35 @@ public enum HIDReportEncoder {
         return reports
     }
 }
+
+public enum CompactStatusEncoder {
+    private static let capsLock: UInt8 = 0x02
+
+    public static func encode(_ command: AgentLightCommand, capsLockOn: Bool) -> [UInt8]? {
+        guard let code = compactCode(command) else { return nil }
+        let caps = capsLockOn ? capsLock : 0
+        var reports: [UInt8] = [caps, caps | 0x01, caps | 0x04, caps | 0x05]
+        var state: UInt8 = 3
+
+        for divisor: UInt8 in [9, 3, 1] {
+            let digit = (code / divisor) % 3
+            state = (state + digit + 1) % 4
+            let mask = (state & 0x01) | ((state & 0x02) << 1)
+            reports.append(caps | mask)
+        }
+        reports.append(caps)
+        return reports
+    }
+
+    private static func compactCode(_ command: AgentLightCommand) -> UInt8? {
+        switch command {
+        case .idle: return 0
+        case .working: return 1
+        case .waiting: return 2
+        case .complete: return 3
+        case .error: return 4
+        case .progress(let value): return 5 + min(value, 5)
+        case .color, .completionDuration, .heartbeat: return nil
+        }
+    }
+}

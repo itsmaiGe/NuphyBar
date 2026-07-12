@@ -72,7 +72,7 @@ public struct IntegrationInstaller: Sendable {
                 "hooks": [[
                     "type": "command",
                     "command": command(provider: provider, event: event),
-                    "timeout": 5,
+                    "timeout": 10,
                 ]],
             ])
             hooks[event] = groups

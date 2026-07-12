@@ -22,7 +22,7 @@ final class AppModel {
             .path
         integrations = IntegrationController(helperPath: helperPath)
         preferences = (try? preferencesFile.load()) ?? AgentLightPreferences()
-        refreshConnection(applyPreferences: true)
+        refreshConnection()
         refreshIntegrations()
     }
 
