@@ -78,7 +78,7 @@ public enum CommandLineError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .missingCommand, .invalidCommand:
-            return "usage: agentlight describe | idle | working | waiting | complete | error | heartbeat | progress 0...5 | color RRGGBB | hook PROVIDER EVENT | event PROVIDER STATUS SESSION"
+            return "usage: agent-light describe | idle | working | waiting | complete | error | heartbeat | progress 0...5 | color RRGGBB | hook PROVIDER EVENT | event PROVIDER STATUS SESSION"
         case .invalidProgress:
             return "progress must be a whole number from 0 through 5"
         case .invalidColor:

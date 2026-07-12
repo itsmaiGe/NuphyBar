@@ -27,7 +27,7 @@ struct AgentLightCLI {
                 sendAgentEvent(event, transport: transport)
             }
         } catch {
-            fputs("agentlight: \(error)\n", stderr)
+            fputs("agent-light: \(error)\n", stderr)
             exit(1)
         }
     }

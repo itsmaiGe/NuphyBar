@@ -7,7 +7,8 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "AgentLightCore", targets: ["AgentLightCore"]),
-        .executable(name: "agentlight", targets: ["AgentLightCLI"]),
+        .executable(name: "agent-light", targets: ["AgentLightCLI"]),
+        .executable(name: "AgentLight", targets: ["AgentLightApp"]),
     ],
     targets: [
         .target(name: "AgentLightCore"),
@@ -21,6 +22,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "AgentLightCLI",
+            dependencies: ["AgentLightCore", "AgentLightHID"]
+        ),
+        .executableTarget(
+            name: "AgentLightApp",
             dependencies: ["AgentLightCore", "AgentLightHID"]
         ),
         .testTarget(name: "AgentLightCoreTests", dependencies: ["AgentLightCore"]),
