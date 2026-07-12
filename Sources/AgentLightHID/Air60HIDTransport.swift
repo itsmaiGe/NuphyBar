@@ -23,8 +23,11 @@ public final class Air60HIDTransport {
     public static let productName = "NuPhy Air60 V2-1"
     private let bitInterval: TimeInterval
 
-    public init(bitInterval: TimeInterval = 0.010) {
+    private let wakeInterval: TimeInterval
+
+    public init(bitInterval: TimeInterval = 0.030, wakeInterval: TimeInterval = 0.250) {
         self.bitInterval = bitInterval
+        self.wakeInterval = wakeInterval
     }
 
     public func describe() throws -> String {
@@ -50,7 +53,7 @@ public final class Air60HIDTransport {
         try withDevice { device in
             for (index, mask) in masks.enumerated() {
                 try setOutputReport(mask, on: device)
-                Thread.sleep(forTimeInterval: index == 0 ? 0.030 : bitInterval)
+                Thread.sleep(forTimeInterval: index < 2 ? wakeInterval : bitInterval)
             }
             Thread.sleep(forTimeInterval: 0.030)
             try setOutputReport(capsMask, on: device)
