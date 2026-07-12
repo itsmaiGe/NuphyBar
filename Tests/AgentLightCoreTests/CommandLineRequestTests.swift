@@ -31,3 +31,12 @@ func colorCommand() throws {
 func crcFixture() {
     #expect(WireFrame.crc8([0x01, 0x20, 0x01, 0x03]) == 0x49)
 }
+
+@Test("hook and explicit agent events identify their provider and session")
+func agentEvents() throws {
+    #expect(try CommandLineRequest.parse(["hook", "codex", "Stop"]) == .hook(.codex, "Stop"))
+    #expect(try CommandLineRequest.parse(["event", "opencode", "working", "session-1"])
+            == .event(.init(provider: .openCode, sessionID: "session-1", status: .working)))
+    #expect(try CommandLineRequest.parse(["event", "opencode", "progress", "session-1", "4"])
+            == .event(.init(provider: .openCode, sessionID: "session-1", status: .progress(4))))
+}
