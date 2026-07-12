@@ -6,6 +6,7 @@ public enum AgentLightCommand: Equatable, Sendable {
     case error
     case progress(UInt8)
     case color(red: UInt8, green: UInt8, blue: UInt8)
+    case completionDuration(seconds: UInt8)
     case heartbeat
 }
 
@@ -55,6 +56,8 @@ public enum WireFrame {
             return .progress(payload[0])
         case 0x30 where payload.count == 3:
             return .color(red: payload[0], green: payload[1], blue: payload[2])
+        case 0x31 where payload.count == 1 && (3...60).contains(payload[0]):
+            return .completionDuration(seconds: payload[0])
         case 0x40 where payload.isEmpty: return .heartbeat
         default: throw WireProtocolError.invalidCommand
         }
@@ -80,6 +83,7 @@ public enum WireFrame {
         case .error: return (0x14, [])
         case .progress(let value): return (0x20, [min(value, 5)])
         case .color(let red, let green, let blue): return (0x30, [red, green, blue])
+        case .completionDuration(let seconds): return (0x31, [min(max(seconds, 3), 60)])
         case .heartbeat: return (0x40, [])
         }
     }

@@ -32,3 +32,10 @@ func corruptedFrame() {
         try WireFrame.decode(encoded)
     }
 }
+
+@Test("completion duration is carried as a compact firmware setting")
+func completionDurationFrame() throws {
+    let encoded = WireFrame.encode(.completionDuration(seconds: 12))
+
+    #expect(try WireFrame.decode(encoded) == .completionDuration(seconds: 12))
+}
