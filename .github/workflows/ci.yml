@@ -8,7 +8,7 @@ jobs:
   test:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check shell scripts
         run: bash -n script/*.sh firmware/air60-v2/*.sh
       - name: Test firmware model and patch encoder
