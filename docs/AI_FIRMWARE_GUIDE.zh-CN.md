@@ -30,7 +30,7 @@ AI 不应该：
 请严格使用 firmware/air60-v2 中已有的 stable-v7 源码和构建器，不要重写无线协议，不要使用任何旧实验固件。
 
 阶段 A（现在可以执行）：
-1. 阅读 README.md、firmware/air60-v2/README.md、build.sh 和 verify_candidate.py。
+1. 阅读 README.zh-CN.md、firmware/air60-v2/README.md、build.sh 和 verify_candidate.py。
 2. 确认我提供的 NuPhy 官方 v2.1.5 固件 SHA-256 是 cd0425f548a01416d1c3c25208ff74867fffd20165520c7c2eaa56000ff347bf。
 3. 运行 firmware/air60-v2/test.sh。
 4. 使用 build.sh 生成 NuphyBar-Air60-V2-stable-v7.bin。
