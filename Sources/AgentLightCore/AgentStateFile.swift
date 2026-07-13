@@ -23,19 +23,21 @@ public struct AgentStateFile: Sendable {
         try withLock { try loadUnlocked() }
     }
 
-    public func apply(_ event: AgentEvent, now: Int64) throws -> AgentLightCommand {
+    public func apply(_ event: AgentEvent, now: Int64) throws -> AgentLightCommand? {
         try withLock {
             var state = try loadUnlocked()
+            let previous = state.displayCommand(now: now)
             state.apply(event, now: now)
             let command = state.displayCommand(now: now)
             try saveUnlocked(state)
-            return command
+            return command == previous ? nil : command
         }
     }
 
     private func loadUnlocked() throws -> AgentState {
         guard FileManager.default.fileExists(atPath: url.path) else { return AgentState() }
-        return try JSONDecoder().decode(AgentState.self, from: Data(contentsOf: url))
+        let data = try Data(contentsOf: url)
+        return (try? JSONDecoder().decode(AgentState.self, from: data)) ?? AgentState()
     }
 
     private func saveUnlocked(_ state: AgentState) throws {

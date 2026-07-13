@@ -8,7 +8,7 @@ struct AgentLightCLI {
     static func main() {
         do {
             let request = try CommandLineRequest.parse(Array(CommandLine.arguments.dropFirst()))
-            let transport = Air60HIDTransport()
+            let transport = NuPhyHIDTransport()
 
             switch request {
             case .describe:
@@ -22,9 +22,9 @@ struct AgentLightCLI {
                     eventName: eventName,
                     payload: payload
                 ) else { return }
-                sendAgentEvent(event, transport: transport)
+                recordAgentEvent(event)
             case .event(let event):
-                sendAgentEvent(event, transport: transport)
+                recordAgentEvent(event)
             }
         } catch {
             fputs("agent-light: \(error)\n", stderr)
@@ -32,12 +32,11 @@ struct AgentLightCLI {
         }
     }
 
-    private static func sendAgentEvent(_ event: AgentEvent, transport: Air60HIDTransport) {
-        // Lifecycle hooks must never block or fail the agent when the keyboard is off.
-        guard let command = try? AgentStateFile().apply(
+    private static func recordAgentEvent(_ event: AgentEvent) {
+        // Hooks only persist state. The menu app owns HID access and sends the report.
+        _ = try? AgentStateFile().apply(
             event,
             now: Int64(Date().timeIntervalSince1970)
-        ) else { return }
-        try? transport.send(command)
+        )
     }
 }

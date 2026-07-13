@@ -3,12 +3,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "AgentLight",
+    name: "NuphyBar",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "AgentLightCore", targets: ["AgentLightCore"]),
         .executable(name: "agent-light", targets: ["AgentLightCLI"]),
-        .executable(name: "AgentLight", targets: ["AgentLightApp"]),
+        .executable(name: "NuphyBar", targets: ["AgentLightApp"]),
     ],
     targets: [
         .target(name: "AgentLightCore"),
@@ -26,7 +26,13 @@ let package = Package(
         ),
         .executableTarget(
             name: "AgentLightApp",
-            dependencies: ["AgentLightCore", "AgentLightHID"]
+            dependencies: ["AgentLightCore", "AgentLightHID"],
+            exclude: ["Resources"],
+            linkerSettings: [.linkedFramework("ServiceManagement")]
+        ),
+        .testTarget(
+            name: "AgentLightAppTests",
+            dependencies: ["AgentLightApp", "AgentLightCore"]
         ),
         .testTarget(name: "AgentLightCoreTests", dependencies: ["AgentLightCore"]),
         .testTarget(name: "AgentLightHIDTests", dependencies: ["AgentLightHID"]),

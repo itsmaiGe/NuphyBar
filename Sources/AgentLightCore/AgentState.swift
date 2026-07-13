@@ -2,6 +2,9 @@ public enum AgentProvider: String, Codable, CaseIterable, Sendable {
     case codex
     case claudeCode = "claude-code"
     case openCode = "opencode"
+    case grokBuild = "grok-build"
+    case hermes
+    case openClaw = "openclaw"
 }
 
 public enum AgentSessionStatus: Codable, Equatable, Sendable {
@@ -10,7 +13,6 @@ public enum AgentSessionStatus: Codable, Equatable, Sendable {
     case waiting
     case complete
     case error
-    case progress(UInt8)
 }
 
 public struct AgentSessionKey: Codable, Hashable, Sendable {
@@ -68,12 +70,6 @@ public struct AgentState: Codable, Equatable, Sendable {
         if records.contains(where: { $0.status == .waiting }) { return .waiting }
         if records.contains(where: { $0.status == .working }) { return .working }
 
-        let progress = records.compactMap { record -> (Int64, UInt8)? in
-            guard case .progress(let value) = record.status else { return nil }
-            return (record.updatedAt, value)
-        }.max { $0.0 < $1.0 }
-        if let progress { return .progress(progress.1) }
-
         if records.contains(where: { $0.status == .complete }) { return .complete }
         return .idle
     }
@@ -84,7 +80,7 @@ public struct AgentState: Codable, Equatable, Sendable {
             switch record.status {
             case .idle: return false
             case .complete: return age <= Self.completionRetention
-            case .working, .waiting, .error, .progress:
+            case .working, .waiting, .error:
                 return age <= Self.activeRetention
             }
         }

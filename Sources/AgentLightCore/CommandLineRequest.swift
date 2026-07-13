@@ -14,20 +14,13 @@ public enum CommandLineRequest: Equatable, Sendable {
         case "waiting" where arguments.count == 1: return .send(.waiting)
         case "complete" where arguments.count == 1: return .send(.complete)
         case "error" where arguments.count == 1: return .send(.error)
-        case "heartbeat" where arguments.count == 1: return .send(.heartbeat)
-        case "progress" where arguments.count == 2:
-            guard let value = UInt8(arguments[1]), value <= 5 else {
-                throw CommandLineError.invalidProgress
-            }
-            return .send(.progress(value))
-        case "color" where arguments.count == 2:
-            return .send(try parseColor(arguments[1]))
         case "hook" where arguments.count == 3:
-            guard let provider = AgentProvider(rawValue: arguments[1]), provider != .openCode else {
+            guard let provider = AgentProvider(rawValue: arguments[1]),
+                  provider == .codex || provider == .claudeCode || provider == .grokBuild else {
                 throw CommandLineError.invalidProvider
             }
             return .hook(provider, arguments[2])
-        case "event" where arguments.count == 4 || arguments.count == 5:
+        case "event" where arguments.count == 4:
             guard let provider = AgentProvider(rawValue: arguments[1]) else {
                 throw CommandLineError.invalidProvider
             }
@@ -38,18 +31,6 @@ public enum CommandLineRequest: Equatable, Sendable {
         }
     }
 
-    private static func parseColor(_ text: String) throws -> AgentLightCommand {
-        let hex = text.hasPrefix("#") ? String(text.dropFirst()) : text
-        guard hex.count == 6, let value = UInt32(hex, radix: 16) else {
-            throw CommandLineError.invalidColor
-        }
-        return .color(
-            red: UInt8((value >> 16) & 0xFF),
-            green: UInt8((value >> 8) & 0xFF),
-            blue: UInt8(value & 0xFF)
-        )
-    }
-
     private static func parseStatus(_ arguments: [String]) throws -> AgentSessionStatus {
         switch arguments[2] {
         case "idle" where arguments.count == 4: return .idle
@@ -57,11 +38,6 @@ public enum CommandLineRequest: Equatable, Sendable {
         case "waiting" where arguments.count == 4: return .waiting
         case "complete" where arguments.count == 4: return .complete
         case "error" where arguments.count == 4: return .error
-        case "progress" where arguments.count == 5:
-            guard let value = UInt8(arguments[4]), value <= 5 else {
-                throw CommandLineError.invalidProgress
-            }
-            return .progress(value)
         default:
             throw CommandLineError.invalidCommand
         }
@@ -71,20 +47,14 @@ public enum CommandLineRequest: Equatable, Sendable {
 public enum CommandLineError: Error, Equatable, CustomStringConvertible {
     case missingCommand
     case invalidCommand
-    case invalidProgress
-    case invalidColor
     case invalidProvider
 
     public var description: String {
         switch self {
         case .missingCommand, .invalidCommand:
-            return "usage: agent-light describe | idle | working | waiting | complete | error | heartbeat | progress 0...5 | color RRGGBB | hook PROVIDER EVENT | event PROVIDER STATUS SESSION"
-        case .invalidProgress:
-            return "progress must be a whole number from 0 through 5"
-        case .invalidColor:
-            return "color must be a six-digit hexadecimal RGB value, for example 00A0FF"
+            return "usage: agent-light describe | idle | working | waiting | complete | error | hook PROVIDER EVENT | event PROVIDER STATUS SESSION"
         case .invalidProvider:
-            return "provider must be codex, claude-code, or opencode"
+            return "provider must be codex, claude-code, opencode, grok-build, hermes, or openclaw"
         }
     }
 }

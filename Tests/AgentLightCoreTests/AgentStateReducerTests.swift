@@ -21,14 +21,6 @@ func attentionPriorities() {
     #expect(state.displayCommand(now: 102) == .error)
 }
 
-@Test("explicit progress is shown when it is the only active task")
-func explicitProgress() {
-    var state = AgentState()
-    state.apply(.init(provider: .openCode, sessionID: "one", status: .progress(4)), now: 100)
-
-    #expect(state.displayCommand(now: 100) == .progress(4))
-}
-
 @Test("idle removes a session and expired states are pruned")
 func idleAndExpiry() {
     var state = AgentState()

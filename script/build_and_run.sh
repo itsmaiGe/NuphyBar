@@ -2,56 +2,66 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-APP_NAME="AgentLight"
-BUNDLE_ID="com.maige.AgentLight"
-MIN_SYSTEM_VERSION="14.0"
+APP_NAME="NuphyBar"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DIST_DIR="$ROOT_DIR/dist"
-APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
-APP_CONTENTS="$APP_BUNDLE/Contents"
-APP_MACOS="$APP_CONTENTS/MacOS"
-APP_HELPERS="$APP_CONTENTS/Helpers"
-APP_BINARY="$APP_MACOS/$APP_NAME"
-INFO_PLIST="$APP_CONTENTS/Info.plist"
+STAGE_DIR="$(mktemp -d /tmp/AgentLight-build.XXXXXX)"
+trap 'rm -rf "$STAGE_DIR"' EXIT
+
+APP_BUNDLE="$STAGE_DIR/$APP_NAME.app"
+INSTALL_DIR="$HOME/Applications"
+INSTALL_APP="$INSTALL_DIR/$APP_NAME.app"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+pkill -x "AgentLight" >/dev/null 2>&1 || true
 
-cd "$ROOT_DIR"
-swift build
-BIN_DIR="$(swift build --show-bin-path)"
+"$ROOT_DIR/script/build_app.sh" "$APP_BUNDLE" >/dev/null
 
-rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS" "$APP_HELPERS"
-cp "$BIN_DIR/$APP_NAME" "$APP_BINARY"
-cp "$BIN_DIR/agent-light" "$APP_HELPERS/agent-light"
-chmod +x "$APP_BINARY" "$APP_HELPERS/agent-light"
+mkdir -p "$INSTALL_DIR"
+INSTALL_STAGE_DIR="$(mktemp -d "$INSTALL_DIR/.NuphyBar-install.XXXXXX")"
+INSTALL_CANDIDATE="$INSTALL_STAGE_DIR/$APP_NAME.app"
+PREVIOUS_APP="$INSTALL_STAGE_DIR/previous.app"
+INSTALL_COMMITTED=0
+INSTALL_SWAP_STARTED=0
 
-cat >"$INFO_PLIST" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleExecutable</key>
-  <string>$APP_NAME</string>
-  <key>CFBundleIdentifier</key>
-  <string>$BUNDLE_ID</string>
-  <key>CFBundleName</key>
-  <string>Agent Light</string>
-  <key>CFBundlePackageType</key>
-  <string>APPL</string>
-  <key>LSMinimumSystemVersion</key>
-  <string>$MIN_SYSTEM_VERSION</string>
-  <key>LSUIElement</key>
-  <true/>
-  <key>NSPrincipalClass</key>
-  <string>NSApplication</string>
-</dict>
-</plist>
-PLIST
+cleanup_install() {
+  if [ "$INSTALL_SWAP_STARTED" -eq 1 ] && [ "$INSTALL_COMMITTED" -eq 0 ]; then
+    rm -rf "$INSTALL_APP"
+    if [ -d "$PREVIOUS_APP" ]; then
+      mv "$PREVIOUS_APP" "$INSTALL_APP"
+    fi
+  fi
+  rm -rf "$INSTALL_STAGE_DIR"
+}
+trap 'cleanup_install; rm -rf "$STAGE_DIR"' EXIT
+
+ditto --norsrc --noextattr --noqtn --noacl "$APP_BUNDLE" "$INSTALL_CANDIDATE"
+codesign --verify --deep --strict "$INSTALL_CANDIDATE"
+if [ -d "$INSTALL_APP" ]; then
+  mv "$INSTALL_APP" "$PREVIOUS_APP"
+fi
+INSTALL_SWAP_STARTED=1
+mv "$INSTALL_CANDIDATE" "$INSTALL_APP"
+codesign --verify --deep --strict "$INSTALL_APP"
+INSTALL_COMMITTED=1
+
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+"$LSREGISTER" -f "$INSTALL_APP" >/dev/null 2>&1 || true
+
+LEGACY_APPS=(
+  "$HOME/Applications/AgentLight.app"
+  "/Applications/AgentLight.app"
+  "/Applications/NuphyBar.app"
+)
+for legacy_app in "${LEGACY_APPS[@]}"; do
+  if [ -d "$legacy_app" ]; then
+    "$LSREGISTER" -u "$legacy_app" >/dev/null 2>&1 || true
+    rm -rf "$legacy_app"
+  fi
+done
 
 open_app() {
-  /usr/bin/open -n "$APP_BUNDLE"
+  /usr/bin/open -n "$INSTALL_APP"
 }
 
 case "$MODE" in
@@ -59,7 +69,7 @@ case "$MODE" in
     open_app
     ;;
   --debug|debug)
-    lldb -- "$APP_BINARY"
+    lldb -- "$INSTALL_APP/Contents/MacOS/$APP_NAME"
     ;;
   --logs|logs)
     open_app
@@ -67,7 +77,7 @@ case "$MODE" in
     ;;
   --telemetry|telemetry)
     open_app
-    /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
+    /usr/bin/log stream --info --style compact --predicate 'subsystem == "com.maige.NuphyBar"'
     ;;
   --verify|verify)
     open_app
