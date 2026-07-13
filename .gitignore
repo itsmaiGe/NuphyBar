@@ -1,7 +1,10 @@
 .build/
 dist/
 .DS_Store
+.codex/
+__pycache__/
+*.pyc
 work/
 outputs/
+firmware/**/build/
 *.xcodeproj/
-

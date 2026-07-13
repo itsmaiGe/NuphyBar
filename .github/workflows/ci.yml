@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell scripts
+        run: bash -n script/*.sh firmware/air60-v2/*.sh
+      - name: Test firmware model and patch encoder
+        run: ./firmware/air60-v2/test.sh
+      - name: Test macOS app
+        run: swift test
+      - name: Build macOS app
+        run: swift build -c release
