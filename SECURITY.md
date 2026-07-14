@@ -6,7 +6,7 @@ Security fixes are applied to the latest NuphyBar Release.
 
 ## Reporting
 
-Do not post private Agent configuration, local paths, session identifiers, or crash logs containing personal data in a public issue. Contact the maintainer through [X](https://x.com/unflwMaige) first and provide only the minimum reproduction details.
+Do not post private Agent configuration, local paths, session identifiers, or crash logs containing personal data in a public issue. Contact the maintainer through [X](https://x.com/Samoye) first and provide only the minimum reproduction details.
 
 ## Data boundary
 

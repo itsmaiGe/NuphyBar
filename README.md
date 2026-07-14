@@ -9,7 +9,7 @@
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a> ·
   <a href="https://github.com/itsmaiGe/NuphyBar/releases/latest">Download</a> ·
-  <a href="https://x.com/unflwMaige">Maige on X</a>
+  <a href="https://x.com/Samoye">Maige on X</a>
 </p>
 
 NuphyBar is a lightweight native macOS menu-bar app. It receives lifecycle events from Codex, Claude Code, OpenCode, and other local agents, sends a standard Bluetooth keyboard LED output report when the state changes, and lets custom keyboard firmware render the animation locally.

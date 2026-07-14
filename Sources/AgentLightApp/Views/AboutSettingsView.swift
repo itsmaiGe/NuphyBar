@@ -62,7 +62,7 @@ struct AboutSettingsView: View {
                     .font(.system(size: SettingsLayout.secondaryTextSize))
                     .foregroundStyle(NuphyBarTheme.secondaryText)
 
-                Link(language.text(.followOnX), destination: URL(string: "https://x.com/unflwMaige")!)
+                Link(language.text(.followOnX), destination: URL(string: "https://x.com/Samoye")!)
                     .font(.system(size: SettingsLayout.secondaryTextSize))
                     .padding(.top, 4)
             }

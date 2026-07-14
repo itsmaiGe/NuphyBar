@@ -9,7 +9,7 @@
 <p align="center">
   <a href="README.md">English</a> ·
   <a href="https://github.com/itsmaiGe/NuphyBar/releases/latest">下载最新版</a> ·
-  <a href="https://x.com/unflwMaige">作者麦格</a>
+  <a href="https://x.com/Samoye">作者麦格</a>
 </p>
 
 NuphyBar 是一个轻量的原生 macOS 菜单栏应用。它接收 Codex、Claude Code、OpenCode 等 Agent 的生命周期事件，通过蓝牙键盘已有的标准 HID 指示灯输出报告发送状态，再由定制键盘固件在本地渲染侧灯动画。
