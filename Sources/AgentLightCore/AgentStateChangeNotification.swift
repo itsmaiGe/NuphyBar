@@ -1,15 +1,15 @@
 import CDarwinNotify
 import Dispatch
 
-public enum AgentStateChangeNotificationError: Error {
+enum AgentStateChangeNotificationError: Error {
     case registrationFailed(UInt32)
 }
 
 public enum AgentStateChangeNotification {
-    private static let name = "com.maige.NuphyBar.agent-state-changed"
+    fileprivate static let name = "com.maige.NuphyBar.agent-state-changed"
 
     @discardableResult
-    public static func post() -> Bool {
+    static func post() -> Bool {
         name.withCString { notify_post($0) == NOTIFY_STATUS_OK }
     }
 
@@ -19,8 +19,6 @@ public enum AgentStateChangeNotification {
     ) throws -> AgentStateChangeObservation {
         try AgentStateChangeObservation(queue: queue, handler: handler)
     }
-
-    fileprivate static var notificationName: String { name }
 }
 
 public final class AgentStateChangeObservation: @unchecked Sendable {
@@ -30,7 +28,7 @@ public final class AgentStateChangeObservation: @unchecked Sendable {
         queue: DispatchQueue,
         handler: @escaping @Sendable () -> Void
     ) throws {
-        let status = AgentStateChangeNotification.notificationName.withCString {
+        let status = AgentStateChangeNotification.name.withCString {
             notify_register_dispatch($0, &token, queue) { _ in handler() }
         }
         guard status == NOTIFY_STATUS_OK else {

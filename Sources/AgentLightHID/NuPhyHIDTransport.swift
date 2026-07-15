@@ -252,7 +252,8 @@ public final class NuPhyHIDTransport: @unchecked Sendable {
         restartWorkItem = nil
         reconnectBackoff.reset()
 
-        if let productName = currentDevice.flatMap(productName(of:)) ?? recoveryProductName {
+        let connectedProductName = currentDevice.flatMap { productName(of: $0) }
+        if let productName = connectedProductName ?? recoveryProductName {
             currentDevice = nil
             recoveryProductName = productName
             publish(.connected(productName: productName, delivery: .rebuilding))

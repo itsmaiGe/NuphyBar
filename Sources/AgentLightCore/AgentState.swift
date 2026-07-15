@@ -46,11 +46,6 @@ public struct AgentSessionRecord: Codable, Equatable, Sendable {
 public struct AgentStatePresentation: Equatable, Sendable {
     public let command: AgentLightCommand
     public let nextExpiration: Int64?
-
-    public init(command: AgentLightCommand, nextExpiration: Int64?) {
-        self.command = command
-        self.nextExpiration = nextExpiration
-    }
 }
 
 public struct AgentState: Codable, Equatable, Sendable {
