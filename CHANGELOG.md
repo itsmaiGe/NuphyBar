@@ -2,8 +2,22 @@
 
 ## Unreleased
 
-- Added an Antigravity integration using Google's official global plugin and lifecycle Hooks.
-- Added an icon derived directly from the official Antigravity macOS app asset for integration identification.
+## 0.5.9 — 2026-07-15
+
+### App
+
+- Added an Antigravity integration using Google's official global plugin and lifecycle Hooks, with an icon derived from the official macOS app asset.
+- Replaced one-second Agent-state polling with macOS system notifications and exact expiration timers; a five-second fallback remains if notification registration fails.
+- Replaced repeated HID scanning and per-command device opens with a persistent non-exclusive HID manager driven by connection and removal callbacks.
+- Added bounded HID session recovery after report failures and proactive session rebuilding after Mac wake, with automatic replay of the latest Agent state when delivery is ready again.
+- Coalesced Agent events that arrive during an in-flight HID report into one immediate follow-up refresh.
+- Changed terminal error retention from 15 minutes to about 15 seconds, matching completion behavior.
+- Removed unused source and icon assets, simplified state/effect logic, and stripped local symbols from Release binaries.
+
+### Firmware tooling
+
+- Replaced Python `assert`-based candidate checks with verification that remains active under optimized Python execution.
+- Added a regression test proving invalid firmware candidates are rejected with `python -O`.
 
 ## 0.5.8 — 2026-07-14
 

@@ -12,7 +12,7 @@
   <a href="https://x.com/Samoye">Maige on X</a>
 </p>
 
-NuphyBar is a lightweight native macOS menu-bar app. It receives lifecycle events from Codex, Claude Code, OpenCode, and other local agents, sends a standard Bluetooth keyboard LED output report when the state changes, and lets custom keyboard firmware render the animation locally.
+NuphyBar is a lightweight native macOS menu-bar app. It receives lifecycle events from Codex, Claude Code, Antigravity, OpenCode, and other local agents, sends a standard Bluetooth keyboard LED output report when the state changes, and lets custom keyboard firmware render the animation locally.
 
 It never reads keystrokes and does not stream animation frames over Bluetooth. The Mac sends one two-byte report per state change; the keyboard renders every animation frame itself.
 
@@ -69,24 +69,47 @@ NuPhy IO and QMK are different firmware stacks. Having a light bar is not suffic
 
 ## Architecture
 
-NuphyBar divides the path into three steps. The Mac sends the current state; the keyboard generates the animation locally.
+NuphyBar uses an event-driven path. The Mac sends the current state; the keyboard generates the animation locally.
 
 ```mermaid
 flowchart TB
-    A["① Agent produces a state<br/>working · waiting · complete"]
-    B["② NuphyBar combines states<br/>send 2 bytes only when the state changes"]
-    C["③ Keyboard firmware plays the animation<br/>render every frame on the keyboard"]
-    A --> B
-    B -->|Bluetooth LE| C
+    A["① Agent hook records a lifecycle event"]
+    B["② Atomic state file + macOS notification"]
+    C["③ NuphyBar combines active sessions"]
+    D["④ Persistent HID session sends 2 bytes"]
+    E["⑤ Keyboard firmware renders every frame"]
+    A --> B --> C --> D
+    D -->|Bluetooth LE| E
 ```
 
 | Component | Responsibility | What it does not do |
 |---|---|---|
-| Agent hook | Write lifecycle events to local state | Control the keyboard directly |
-| NuphyBar | Combine concurrent sessions and send one report when the displayed state changes | Stream animation frames |
+| Agent hook | Atomically update local state and post a system notification | Control the keyboard directly |
+| NuphyBar | Combine concurrent sessions and send one report when the displayed state changes | Poll every second or stream animation frames |
 | Keyboard firmware | Turn a state into a wave, double pulse, or breathing animation | Read Agent content |
 
 In other words, Bluetooth carries “working,” not a continuous sequence such as “light LED 1, then LED 2.”
+
+The local state file is the durable source of truth; the macOS notification is only the wake-up signal. NuphyBar reads the file at launch and whenever a lifecycle event arrives, then creates one timer for the next state expiration. Normal operation has no Agent-state polling. If system notification registration fails, a five-second fallback poll keeps the app functional.
+
+### Connection recovery in 0.5.9
+
+Earlier releases repeatedly scanned for the keyboard and opened it for each check or command. NuphyBar 0.5.9 instead keeps one non-exclusive HID manager active and listens for macOS device connection/removal callbacks.
+
+```mermaid
+flowchart LR
+    A["HID ready"]
+    B["Discard stale session"]
+    C["Retry after 1 · 2 · 5 · 10 · 30 s"]
+    D["Replay latest Agent state"]
+    A -->|report failure or Mac wake| B --> C --> D --> A
+```
+
+- A failed output report invalidates the old HID session instead of immediately hammering the same stale device handle.
+- Mac wake proactively rebuilds the HID session; the user does not need to power-cycle the keyboard.
+- When delivery becomes ready again, NuphyBar replays the current combined Agent state.
+- If another Agent event arrives while a report is being sent, it is coalesced into one immediate follow-up refresh.
+- Complete and error indications expire after about 15 seconds using an exact deadline, then idle lighting is restored.
 
 ### How one byte represents the state
 
@@ -145,14 +168,14 @@ Requirements:
 
 Steps:
 
-1. Download `NuphyBar-0.5.8-macOS-arm64.dmg` from [Releases](https://github.com/itsmaiGe/NuphyBar/releases/latest).
+1. Download `NuphyBar-0.5.9-macOS-arm64.dmg` from [Releases](https://github.com/itsmaiGe/NuphyBar/releases/latest).
 2. Open the DMG and drag NuphyBar to Applications.
 3. On first launch, if macOS blocks the app, Control-click it and choose Open, or approve it in System Settings → Privacy & Security.
 4. Grant Input Monitoring when prompted. This allows HID output to the keyboard; NuphyBar does not read or store keystrokes.
 5. Reopen NuphyBar and confirm the exact keyboard model and Bluetooth connection on the Keyboard tab.
 6. Enable the desired integrations on the Agent tab, then start a new task in that agent.
 
-The first public DMG is ad-hoc signed and is not yet notarized with an Apple Developer ID. Its full source, build script, and checksums are public.
+The Release DMG is ad-hoc signed and is not yet notarized with an Apple Developer ID. Its full source, build script, and checksums are public.
 
 ## Agent integrations
 
@@ -207,7 +230,7 @@ swift test
 ./script/package_release.sh
 ```
 
-The DMG is written to `dist/NuphyBar-0.5.8-macOS-arm64.dmg`.
+The DMG is written to `dist/NuphyBar-0.5.9-macOS-arm64.dmg`.
 
 To build, install, and run locally:
 
