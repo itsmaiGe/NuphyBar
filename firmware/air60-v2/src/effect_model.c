@@ -38,15 +38,12 @@ static void render_working(uint32_t now_ms, agent_light_frame_t *frame) {
 
 static void render_waiting(uint32_t now_ms, agent_light_frame_t *frame) {
     uint8_t step = (uint8_t)((now_ms >> 5) % 40);
-    uint8_t pulse_step;
     uint8_t level = 0;
 
     if (step < 3) {
-        pulse_step = step;
-        level = (uint8_t)(255 - pulse_step * 96);
+        level = (uint8_t)(255 - step * 96);
     } else if (step >= 6 && step < 9) {
-        pulse_step = (uint8_t)(step - 6);
-        level = (uint8_t)(255 - pulse_step * 96);
+        level = (uint8_t)(255 - (step - 6) * 96);
     }
 
     fill_scaled(frame, 255, 96, 0, level);

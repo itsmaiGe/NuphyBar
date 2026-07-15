@@ -65,7 +65,7 @@ public struct AgentState: Codable, Equatable, Sendable {
 
     public mutating func displayCommand(now: Int64) -> AgentLightCommand {
         prune(now: now)
-        let records = Array(sessions.values)
+        let records = sessions.values
 
         if records.contains(where: { $0.status == .error }) { return .error }
         if records.contains(where: { $0.status == .waiting }) { return .waiting }

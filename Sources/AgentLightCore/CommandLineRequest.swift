@@ -25,20 +25,20 @@ public enum CommandLineRequest: Equatable, Sendable {
             guard let provider = AgentProvider(rawValue: arguments[1]) else {
                 throw CommandLineError.invalidProvider
             }
-            let status = try parseStatus(arguments)
+            let status = try parseStatus(arguments[2])
             return .event(AgentEvent(provider: provider, sessionID: arguments[3], status: status))
         default:
             throw CommandLineError.invalidCommand
         }
     }
 
-    private static func parseStatus(_ arguments: [String]) throws -> AgentSessionStatus {
-        switch arguments[2] {
-        case "idle" where arguments.count == 4: return .idle
-        case "working" where arguments.count == 4: return .working
-        case "waiting" where arguments.count == 4: return .waiting
-        case "complete" where arguments.count == 4: return .complete
-        case "error" where arguments.count == 4: return .error
+    private static func parseStatus(_ value: String) throws -> AgentSessionStatus {
+        switch value {
+        case "idle": return .idle
+        case "working": return .working
+        case "waiting": return .waiting
+        case "complete": return .complete
+        case "error": return .error
         default:
             throw CommandLineError.invalidCommand
         }
