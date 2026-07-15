@@ -11,6 +11,7 @@ struct AgentSettingsView: View {
                 VStack(spacing: 0) {
                     integrationRow(.codex)
                     integrationRow(.claudeCode)
+                    integrationRow(.antigravity)
                     integrationRow(.openCode)
                     integrationRow(.grokBuild)
                     integrationRow(.hermes)
@@ -92,6 +93,7 @@ extension AgentProvider {
         case .grokBuild: "Grok Build"
         case .hermes: "Hermes"
         case .openClaw: "OpenClaw"
+        case .antigravity: "Antigravity"
         }
     }
 }

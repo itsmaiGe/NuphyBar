@@ -14,6 +14,7 @@ func everySupportedAgentHasAVisibleBrandMark() throws {
         .grokBuild,
         .hermes,
         .openClaw,
+        .antigravity,
     ]
 
     for provider in providers {
@@ -96,6 +97,7 @@ func newAgentsUseOfficialBrandAssets() {
     #expect(AgentBrandAsset.forProvider(.grokBuild) == .init(name: "GrokBuild", extension: "svg"))
     #expect(AgentBrandAsset.forProvider(.hermes) == .init(name: "Hermes", extension: "png"))
     #expect(AgentBrandAsset.forProvider(.openClaw) == .init(name: "OpenClaw", extension: "png"))
+    #expect(AgentBrandAsset.forProvider(.antigravity) == .init(name: "Antigravity", extension: "png"))
 }
 
 @Test("idle preview uses at most three neighboring source colors")

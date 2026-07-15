@@ -25,6 +25,8 @@ func unsupportedLegacyCommands() {
 @Test("hook and explicit agent events identify their provider and session")
 func agentEvents() throws {
     #expect(try CommandLineRequest.parse(["hook", "codex", "Stop"]) == .hook(.codex, "Stop"))
+    #expect(try CommandLineRequest.parse(["hook", "antigravity", "PreInvocation"])
+            == .hook(.antigravity, "PreInvocation"))
     #expect(try CommandLineRequest.parse(["event", "opencode", "working", "session-1"])
             == .event(.init(provider: .openCode, sessionID: "session-1", status: .working)))
     #expect(throws: CommandLineError.invalidCommand) {

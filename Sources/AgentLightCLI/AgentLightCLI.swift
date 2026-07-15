@@ -17,12 +17,16 @@ struct AgentLightCLI {
                 try transport.send(command)
             case .hook(let provider, let eventName):
                 let payload = FileHandle.standardInput.readDataToEndOfFile()
-                guard let event = try? HookEventMapper.map(
+                if let event = try? HookEventMapper.map(
                     provider: provider,
                     eventName: eventName,
                     payload: payload
-                ) else { return }
-                recordAgentEvent(event)
+                ) {
+                    recordAgentEvent(event)
+                }
+                if let response = HookEventMapper.response(provider: provider, eventName: eventName) {
+                    FileHandle.standardOutput.write(response + Data("\n".utf8))
+                }
             case .event(let event):
                 recordAgentEvent(event)
             }

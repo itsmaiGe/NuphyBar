@@ -61,6 +61,8 @@ public struct IntegrationInstaller: Sendable {
                 try? removeOwnedDirectory(at: openClawHookURL, markerFile: "HOOK.md")
                 throw error
             }
+        case .antigravity:
+            try writeAntigravityPlugin()
         }
     }
 
@@ -79,6 +81,8 @@ public struct IntegrationInstaller: Sendable {
         case .openClaw:
             try? runOpenClaw(["hooks", "disable", "nuphybar"])
             try removeOwnedDirectory(at: openClawHookURL, markerFile: "HOOK.md")
+        case .antigravity:
+            try removeOwnedDirectory(at: antigravityPluginURL, markerFile: "plugin.json")
         }
     }
 
@@ -96,6 +100,14 @@ public struct IntegrationInstaller: Sendable {
                 && hermesConfigContainsPlugin()
         case .openClaw:
             return fileContainsMarker(at: openClawHookURL.appending(path: "HOOK.md"), marker: "NuphyBar")
+        case .antigravity:
+            return fileContainsMarker(
+                at: antigravityPluginURL.appending(path: "plugin.json"),
+                marker: "NuphyBar"
+            ) && fileContainsMarker(
+                at: antigravityPluginURL.appending(path: "hooks.json"),
+                marker: "hook antigravity"
+            )
         }
     }
 
@@ -128,6 +140,38 @@ public struct IntegrationInstaller: Sendable {
     private var hermesPluginURL: URL { homeURL.appending(path: ".hermes/plugins/nuphybar") }
     private var hermesConfigURL: URL { homeURL.appending(path: ".hermes/config.yaml") }
     private var openClawHookURL: URL { homeURL.appending(path: ".openclaw/hooks/nuphybar") }
+    private var antigravityPluginURL: URL {
+        homeURL.appending(path: ".gemini/config/plugins/nuphybar")
+    }
+
+    private func writeAntigravityPlugin() throws {
+        let manifestURL = antigravityPluginURL.appending(path: "plugin.json")
+        if FileManager.default.fileExists(atPath: resolvedURL(antigravityPluginURL).path),
+           !fileContainsMarker(at: manifestURL, marker: "NuphyBar") {
+            throw IntegrationInstallerError.integrationFileConflict("Antigravity 插件")
+        }
+
+        let manifest: [String: Any] = [
+            "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+            "name": "nuphybar",
+            "description": "NuphyBar local keyboard status integration",
+        ]
+        let hook: (String) -> [String: Any] = { event in
+            [
+                "type": "command",
+                "command": command(provider: .antigravity, event: event),
+                "timeout": 10,
+            ]
+        }
+        let hooks: [String: Any] = [
+            "nuphybar": [
+                "PreInvocation": [hook("PreInvocation")],
+                "Stop": [hook("Stop")],
+            ],
+        ]
+        try writeJSONObject(manifest, to: manifestURL)
+        try writeJSONObject(hooks, to: antigravityPluginURL.appending(path: "hooks.json"))
+    }
 
     private func writeGrokHooks() throws {
         try requireOwnedOrAbsent(grokHooksURL, marker: "NuphyBar", integration: "Grok Build Hook")

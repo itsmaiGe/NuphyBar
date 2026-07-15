@@ -1,4 +1,5 @@
 import AgentLightCore
+import AppKit
 import Foundation
 
 enum IntegrationStatus: Sendable, Equatable {
@@ -66,6 +67,12 @@ actor IntegrationController {
                 "/usr/local/bin/openclaw",
             ]
             return paths.contains { FileManager.default.fileExists(atPath: $0) }
+        case .antigravity:
+            return NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: "com.google.antigravity"
+            ) != nil || FileManager.default.fileExists(
+                atPath: homeURL.appending(path: ".gemini/antigravity").path
+            )
         }
     }
 }

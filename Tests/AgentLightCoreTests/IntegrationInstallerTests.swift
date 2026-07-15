@@ -324,6 +324,50 @@ func openClawUsesManagedHookCLI() throws {
     #expect(calls.contains("hooks disable nuphybar"))
 }
 
+@Test("Antigravity installs an isolated official global plugin")
+func antigravityUsesGlobalPluginHooks() throws {
+    let home = try temporaryHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let helper = "/Applications/NuphyBar.app/Contents/Helpers/agent-light"
+    let installer = IntegrationInstaller(homeURL: home, helperPath: helper)
+
+    try installer.install(.antigravity)
+
+    let plugin = home.appending(path: ".gemini/config/plugins/nuphybar")
+    let manifest = try json(at: plugin.appending(path: "plugin.json"))
+    #expect(manifest["name"] as? String == "nuphybar")
+    #expect((manifest["description"] as? String)?.contains("NuphyBar") == true)
+
+    let hooks = try json(at: plugin.appending(path: "hooks.json"))
+    let integration = try #require(hooks["nuphybar"] as? [String: Any])
+    #expect(integration["PreInvocation"] != nil)
+    #expect(integration["Stop"] != nil)
+    #expect(installer.isInstalled(.antigravity))
+
+    try installer.uninstall(.antigravity)
+    #expect(!FileManager.default.fileExists(atPath: plugin.path))
+}
+
+@Test("Antigravity never overwrites an existing plugin directory")
+func antigravityPreservesConflictingPlugin() throws {
+    let home = try temporaryHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let plugin = home.appending(path: ".gemini/config/plugins/nuphybar")
+    try FileManager.default.createDirectory(at: plugin, withIntermediateDirectories: true)
+    let manifest = plugin.appending(path: "plugin.json")
+    let original = Data(#"{"name":"user-owned"}"#.utf8)
+    try original.write(to: manifest)
+    let installer = IntegrationInstaller(
+        homeURL: home,
+        helperPath: "/Applications/NuphyBar.app/Contents/Helpers/agent-light"
+    )
+
+    #expect(throws: IntegrationInstallerError.self) {
+        try installer.install(.antigravity)
+    }
+    #expect(try Data(contentsOf: manifest) == original)
+}
+
 private func temporaryHome() throws -> URL {
     let url = FileManager.default.temporaryDirectory
         .appending(path: UUID().uuidString, directoryHint: .isDirectory)

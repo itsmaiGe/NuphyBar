@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added an Antigravity integration using Google's official global plugin and lifecycle Hooks.
+- Added an icon derived directly from the official Antigravity macOS app asset for integration identification.
+
 ## 0.5.8 — 2026-07-14
 
 ### App

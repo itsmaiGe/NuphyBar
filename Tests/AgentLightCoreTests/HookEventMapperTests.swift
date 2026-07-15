@@ -37,6 +37,29 @@ func claudeHookMapping() throws {
     #expect(try HookEventMapper.map(provider: .claudeCode, eventName: "SessionEnd", payload: payload)?.status == .idle)
 }
 
+@Test("Antigravity camel-case hooks preserve active work and completion")
+func antigravityHookMapping() throws {
+    let invocation = Data(#"{"conversationId":"agy-1"}"#.utf8)
+    let activeStop = Data(#"{"conversationId":"agy-1","fullyIdle":false,"terminationReason":"model_stop","error":""}"#.utf8)
+    let completeStop = Data(#"{"conversationId":"agy-1","fullyIdle":true,"terminationReason":"model_stop","error":""}"#.utf8)
+    let errorStop = Data(#"{"conversationId":"agy-1","fullyIdle":true,"terminationReason":"error","error":"boom"}"#.utf8)
+
+    #expect(try HookEventMapper.map(provider: .antigravity, eventName: "PreInvocation", payload: invocation)?.status == .working)
+    #expect(try HookEventMapper.map(provider: .antigravity, eventName: "Stop", payload: activeStop)?.status == .working)
+    #expect(try HookEventMapper.map(provider: .antigravity, eventName: "Stop", payload: completeStop)?.status == .complete)
+    #expect(try HookEventMapper.map(provider: .antigravity, eventName: "Stop", payload: errorStop)?.status == .error)
+}
+
+@Test("Antigravity hooks return non-invasive responses required by Google")
+func antigravityHookResponses() throws {
+    let invocation = try #require(HookEventMapper.response(provider: .antigravity, eventName: "PreInvocation"))
+    let stop = try #require(HookEventMapper.response(provider: .antigravity, eventName: "Stop"))
+
+    #expect(try JSONSerialization.jsonObject(with: invocation) as? [String: String] == [:])
+    #expect((try JSONSerialization.jsonObject(with: stop) as? [String: String])?["decision"] == "stop")
+    #expect(HookEventMapper.response(provider: .codex, eventName: "Stop") == nil)
+}
+
 @Test("unknown hooks are ignored and malformed payloads are rejected")
 func unknownAndMalformedHooks() throws {
     let payload = Data(#"{"session_id":"one"}"#.utf8)

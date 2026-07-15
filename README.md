@@ -160,6 +160,7 @@ The first public DMG is ad-hoc signed and is not yet notarized with an Apple Dev
 |---|---|---|
 | Codex | `~/.codex/hooks.json` | prompt submit, permission, tool completion, stop |
 | Claude Code | `~/.claude/settings.json` | prompt, permission, input notification, tool completion, session end |
+| Antigravity | `~/.gemini/config/plugins/nuphybar` | model invocation, fully-idle completion, execution error |
 | OpenCode | global local plugin | busy, idle, error, permission |
 | Grok Build | personal hooks file | prompt, tool, failure, permission, stop |
 | Hermes | local lifecycle plugin | LLM call, approval, session completion |

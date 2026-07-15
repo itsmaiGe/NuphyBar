@@ -9,7 +9,7 @@ struct AgentBrandIcon: View {
     var body: some View {
         Group {
             switch provider {
-            case .codex, .claudeCode, .grokBuild, .hermes, .openClaw:
+            case .codex, .claudeCode, .grokBuild, .hermes, .openClaw, .antigravity:
                 if let image = brandImage {
                     Image(nsImage: image)
                         .resizable()
@@ -46,6 +46,7 @@ struct AgentBrandAsset: Equatable {
         case .grokBuild: AgentBrandAsset(name: "GrokBuild", extension: "svg")
         case .hermes: AgentBrandAsset(name: "Hermes", extension: "png")
         case .openClaw: AgentBrandAsset(name: "OpenClaw", extension: "png")
+        case .antigravity: AgentBrandAsset(name: "Antigravity", extension: "png")
         }
     }
 }
@@ -62,7 +63,7 @@ private struct ResourceFallbackMark: View {
             Text("A")
                 .font(.system(size: 18, weight: .bold, design: .serif))
                 .foregroundStyle(Color(red: 0.83, green: 0.39, blue: 0.25))
-        case .grokBuild, .hermes, .openClaw:
+        case .grokBuild, .hermes, .openClaw, .antigravity:
             Image(systemName: "app.dashed")
                 .font(.system(size: 17, weight: .regular))
         case .openCode:

@@ -5,6 +5,7 @@ public enum AgentProvider: String, Codable, CaseIterable, Sendable {
     case grokBuild = "grok-build"
     case hermes
     case openClaw = "openclaw"
+    case antigravity
 }
 
 public enum AgentSessionStatus: Codable, Equatable, Sendable {

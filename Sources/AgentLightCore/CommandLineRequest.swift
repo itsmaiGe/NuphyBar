@@ -16,7 +16,8 @@ public enum CommandLineRequest: Equatable, Sendable {
         case "error" where arguments.count == 1: return .send(.error)
         case "hook" where arguments.count == 3:
             guard let provider = AgentProvider(rawValue: arguments[1]),
-                  provider == .codex || provider == .claudeCode || provider == .grokBuild else {
+                  provider == .codex || provider == .claudeCode || provider == .grokBuild
+                    || provider == .antigravity else {
                 throw CommandLineError.invalidProvider
             }
             return .hook(provider, arguments[2])
@@ -54,7 +55,7 @@ public enum CommandLineError: Error, Equatable, CustomStringConvertible {
         case .missingCommand, .invalidCommand:
             return "usage: agent-light describe | idle | working | waiting | complete | error | hook PROVIDER EVENT | event PROVIDER STATUS SESSION"
         case .invalidProvider:
-            return "provider must be codex, claude-code, opencode, grok-build, hermes, or openclaw"
+            return "provider must be codex, claude-code, opencode, grok-build, hermes, openclaw, or antigravity"
         }
     }
 }

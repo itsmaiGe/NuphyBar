@@ -34,7 +34,7 @@ cp "$BIN_DIR/agent-light" "$APP_HELPERS/agent-light"
 cp "$ROOT_DIR/Sources/AgentLightApp/Resources/NuphyBar.icns" "$APP_RESOURCES/NuphyBar.icns"
 cp "$ROOT_DIR/Sources/AgentLightApp/Resources/NuphyBarMenuBarIcon.png" "$APP_RESOURCES/NuphyBarMenuBarIcon.png"
 
-for asset in Codex.png ClaudeCode.png GrokBuild.svg Hermes.png OpenClaw.png; do
+for asset in Codex.png ClaudeCode.png Antigravity.png GrokBuild.svg Hermes.png OpenClaw.png; do
   cp "$ROOT_DIR/Sources/AgentLightApp/Resources/AgentIcons/$asset" "$APP_RESOURCES/$asset"
 done
 
