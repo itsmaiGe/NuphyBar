@@ -6,6 +6,7 @@ import Observation
 import OSLog
 
 private let hidLogger = Logger(subsystem: "com.maige.NuphyBar", category: "HID")
+private let agentStateLogger = Logger(subsystem: "com.maige.NuphyBar", category: "AgentState")
 
 @MainActor
 @Observable
@@ -21,7 +22,9 @@ final class AppModel {
     private let keyboard = KeyboardController()
     private let integrations: IntegrationController
     @ObservationIgnored private var deliveryState = AgentCommandDeliveryState()
-    @ObservationIgnored private var agentMonitorTask: Task<Void, Never>?
+    @ObservationIgnored private var agentStateObservation: AgentStateChangeObservation?
+    @ObservationIgnored private var agentExpirationTask: Task<Void, Never>?
+    @ObservationIgnored private var agentFallbackTask: Task<Void, Never>?
     @ObservationIgnored private var keyboardConnectionTask: Task<Void, Never>?
     @ObservationIgnored private var integrationNoticeTask: Task<Void, Never>?
     @ObservationIgnored private var isDeliveryReady = false
@@ -95,7 +98,10 @@ final class AppModel {
         isSending = true
         keyboardError = nil
         Task {
-            defer { isSending = false }
+            defer {
+                isSending = false
+                applyAgentStateIfChanged()
+            }
             do {
                 try await operation()
             } catch {
@@ -109,10 +115,30 @@ final class AppModel {
     }
 
     private func startAgentMonitor() {
-        agentMonitorTask = Task { [weak self] in
+        do {
+            agentStateObservation = try AgentStateChangeNotification.observe { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.applyAgentStateIfChanged()
+                }
+            }
+        } catch {
+            agentStateLogger.error(
+                "Could not register Agent state notifications: \(String(describing: error), privacy: .public)"
+            )
+            startAgentFallbackMonitor()
+        }
+        applyAgentStateIfChanged()
+    }
+
+    private func startAgentFallbackMonitor() {
+        agentFallbackTask = Task { [weak self] in
             while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(5))
+                } catch {
+                    return
+                }
                 self?.applyAgentStateIfChanged()
-                try? await Task.sleep(for: .seconds(1))
             }
         }
     }
@@ -169,14 +195,37 @@ final class AppModel {
     }
 
     private func applyAgentStateIfChanged() {
+        guard var state = try? AgentStateFile().load() else { return }
+        let now = Int64(Date().timeIntervalSince1970)
+        let presentation = state.presentation(now: now)
+        scheduleAgentExpiration(presentation.nextExpiration, now: now)
+
         guard hidAccessState == .granted, isConnected, isDeliveryReady, !isSending,
-              var state = try? AgentStateFile().load() else { return }
-        let command = state.displayCommand(now: Int64(Date().timeIntervalSince1970))
-        guard deliveryState.shouldSend(command) else { return }
+              deliveryState.shouldSend(presentation.command) else { return }
 
         perform {
-            try await self.keyboard.send(command)
-            self.deliveryState.markDelivered(command)
+            try await self.keyboard.send(presentation.command)
+            self.deliveryState.markDelivered(presentation.command)
+        }
+    }
+
+    private func scheduleAgentExpiration(_ expiration: Int64?, now: Int64) {
+        agentExpirationTask?.cancel()
+        guard let expiration else {
+            agentExpirationTask = nil
+            return
+        }
+
+        let delay = max(0, expiration - now)
+        agentExpirationTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+            guard let self else { return }
+            agentExpirationTask = nil
+            applyAgentStateIfChanged()
         }
     }
 

@@ -37,7 +37,7 @@ struct AgentLightCLI {
 
     private static func recordAgentEvent(_ event: AgentEvent) {
         // Hooks only persist state. The menu app owns HID access and sends the report.
-        _ = try? AgentStateFile().apply(
+        _ = try? AgentStateFile().record(
             event,
             now: Int64(Date().timeIntervalSince1970)
         )

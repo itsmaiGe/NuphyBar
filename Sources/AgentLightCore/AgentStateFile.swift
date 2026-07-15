@@ -34,6 +34,12 @@ public struct AgentStateFile: Sendable {
         }
     }
 
+    public func record(_ event: AgentEvent, now: Int64) throws -> AgentLightCommand? {
+        let command = try apply(event, now: now)
+        AgentStateChangeNotification.post()
+        return command
+    }
+
     private func loadUnlocked() throws -> AgentState {
         guard FileManager.default.fileExists(atPath: url.path) else { return AgentState() }
         let data = try Data(contentsOf: url)
