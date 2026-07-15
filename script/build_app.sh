@@ -39,6 +39,7 @@ for asset in Codex.png ClaudeCode.png Antigravity.png GrokBuild.svg Hermes.png O
 done
 
 chmod +x "$APP_BINARY" "$APP_HELPERS/agent-light"
+strip -x "$APP_BINARY" "$APP_HELPERS/agent-light"
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
