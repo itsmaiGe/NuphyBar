@@ -72,3 +72,17 @@ func recoveryKeepsKeyboardPresence() {
     #expect(productName == "NuPhy Air60 V2-1")
     #expect(error == .reportFailed(kIOReturnNotPermitted))
 }
+
+@Test("proactive HID session rebuilding keeps the keyboard present")
+func rebuildingKeepsKeyboardPresence() {
+    let state = NuPhyHIDConnectionState.connected(
+        productName: "NuPhy Air60 V2-1",
+        delivery: .rebuilding
+    )
+
+    guard case .connected(let productName, .rebuilding) = state else {
+        Issue.record("expected a connected keyboard with a rebuilding report channel")
+        return
+    }
+    #expect(productName == "NuPhy Air60 V2-1")
+}

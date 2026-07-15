@@ -43,6 +43,16 @@ public struct AgentSessionRecord: Codable, Equatable, Sendable {
     public var updatedAt: Int64
 }
 
+public struct AgentStatePresentation: Equatable, Sendable {
+    public let command: AgentLightCommand
+    public let nextExpiration: Int64?
+
+    public init(command: AgentLightCommand, nextExpiration: Int64?) {
+        self.command = command
+        self.nextExpiration = nextExpiration
+    }
+}
+
 public struct AgentState: Codable, Equatable, Sendable {
     public static let completionRetention: Int64 = 15
     public static let activeRetention: Int64 = 15 * 60
@@ -63,16 +73,31 @@ public struct AgentState: Codable, Equatable, Sendable {
         }
     }
 
-    public mutating func displayCommand(now: Int64) -> AgentLightCommand {
+    public mutating func presentation(now: Int64) -> AgentStatePresentation {
         prune(now: now)
         let records = sessions.values
+        let command: AgentLightCommand
 
-        if records.contains(where: { $0.status == .error }) { return .error }
-        if records.contains(where: { $0.status == .waiting }) { return .waiting }
-        if records.contains(where: { $0.status == .working }) { return .working }
+        if records.contains(where: { $0.status == .error }) {
+            command = .error
+        } else if records.contains(where: { $0.status == .waiting }) {
+            command = .waiting
+        } else if records.contains(where: { $0.status == .working }) {
+            command = .working
+        } else if records.contains(where: { $0.status == .complete }) {
+            command = .complete
+        } else {
+            command = .idle
+        }
 
-        if records.contains(where: { $0.status == .complete }) { return .complete }
-        return .idle
+        return AgentStatePresentation(
+            command: command,
+            nextExpiration: records.compactMap(expiration).min()
+        )
+    }
+
+    public mutating func displayCommand(now: Int64) -> AgentLightCommand {
+        presentation(now: now).command
     }
 
     private mutating func prune(now: Int64) {
@@ -84,6 +109,17 @@ public struct AgentState: Codable, Equatable, Sendable {
             case .working, .waiting:
                 return age <= Self.activeRetention
             }
+        }
+    }
+
+    private func expiration(for record: AgentSessionRecord) -> Int64? {
+        switch record.status {
+        case .idle:
+            return nil
+        case .complete, .error:
+            return record.updatedAt + Self.completionRetention + 1
+        case .working, .waiting:
+            return record.updatedAt + Self.activeRetention + 1
         }
     }
 }

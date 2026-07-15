@@ -11,7 +11,11 @@ let package = Package(
         .executable(name: "NuphyBar", targets: ["AgentLightApp"]),
     ],
     targets: [
-        .target(name: "AgentLightCore"),
+        .target(
+            name: "CDarwinNotify",
+            publicHeadersPath: "include"
+        ),
+        .target(name: "AgentLightCore", dependencies: ["CDarwinNotify"]),
         .target(
             name: "AgentLightHID",
             dependencies: ["AgentLightCore"],

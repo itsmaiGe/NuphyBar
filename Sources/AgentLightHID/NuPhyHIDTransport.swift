@@ -41,6 +41,7 @@ public enum NuPhyHIDError: LocalizedError, CustomStringConvertible, Equatable, S
 
 public enum NuPhyHIDDeliveryState: Equatable, Sendable {
     case ready
+    case rebuilding
     case recovering(NuPhyHIDError)
 }
 

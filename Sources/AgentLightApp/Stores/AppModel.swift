@@ -142,6 +142,12 @@ final class AppModel {
             isDeliveryReady = false
             keyboardError = error.localizedDescription
 
+        case .connected(let productName, .rebuilding):
+            keyboardModel = productName
+            isConnected = true
+            isDeliveryReady = false
+            keyboardError = nil
+
         case .connected(let productName, .ready):
             let shouldReplayState = !isDeliveryReady
             keyboardModel = productName
