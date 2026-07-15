@@ -34,3 +34,12 @@ func idleAndExpiry() {
     state.apply(.init(provider: .claudeCode, sessionID: "two", status: .complete), now: 200)
     #expect(state.displayCommand(now: 200 + AgentState.completionRetention + 1) == .idle)
 }
+
+@Test("an error is shown briefly and then returns to idle")
+func errorExpiry() {
+    var state = AgentState()
+    state.apply(.init(provider: .antigravity, sessionID: "one", status: .error), now: 200)
+
+    #expect(state.displayCommand(now: 200) == .error)
+    #expect(state.displayCommand(now: 200 + AgentState.completionRetention + 1) == .idle)
+}

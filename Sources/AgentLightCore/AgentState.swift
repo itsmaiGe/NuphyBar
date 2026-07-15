@@ -80,8 +80,8 @@ public struct AgentState: Codable, Equatable, Sendable {
             let age = max(0, now - record.updatedAt)
             switch record.status {
             case .idle: return false
-            case .complete: return age <= Self.completionRetention
-            case .working, .waiting, .error:
+            case .complete, .error: return age <= Self.completionRetention
+            case .working, .waiting:
                 return age <= Self.activeRetention
             }
         }
