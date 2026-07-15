@@ -22,13 +22,14 @@ final class AppModel {
     private let keyboard = KeyboardController()
     private let integrations: IntegrationController
     @ObservationIgnored private var deliveryState = AgentCommandDeliveryState()
+    @ObservationIgnored private var deliveryActivity = AgentDeliveryActivity()
     @ObservationIgnored private var agentStateObservation: AgentStateChangeObservation?
     @ObservationIgnored private var agentExpirationTask: Task<Void, Never>?
     @ObservationIgnored private var agentFallbackTask: Task<Void, Never>?
     @ObservationIgnored private var keyboardConnectionTask: Task<Void, Never>?
     @ObservationIgnored private var integrationNoticeTask: Task<Void, Never>?
+    @ObservationIgnored private var systemWakeMonitor: SystemWakeMonitor?
     @ObservationIgnored private var isDeliveryReady = false
-    @ObservationIgnored private var isSending = false
 
     init() {
         let helperPath = Bundle.main.bundleURL
@@ -39,6 +40,7 @@ final class AppModel {
         refreshConnection()
         refreshIntegrations()
         startAgentMonitor()
+        startSystemWakeMonitor()
     }
 
     func refreshConnection() {
@@ -94,13 +96,13 @@ final class AppModel {
     }
 
     private func perform(_ operation: @escaping @MainActor () async throws -> Void) {
-        guard !isSending else { return }
-        isSending = true
+        guard deliveryActivity.begin() else { return }
         keyboardError = nil
         Task {
             defer {
-                isSending = false
-                applyAgentStateIfChanged()
+                if deliveryActivity.finish() {
+                    applyAgentStateIfChanged()
+                }
             }
             do {
                 try await operation()
@@ -153,6 +155,20 @@ final class AppModel {
         }
     }
 
+    private func startSystemWakeMonitor() {
+        systemWakeMonitor = SystemWakeMonitor { [weak self] in
+            self?.rebuildHIDSessionAfterWake()
+        }
+    }
+
+    private func rebuildHIDSessionAfterWake() {
+        isDeliveryReady = false
+        hidLogger.info("Mac woke from sleep; rebuilding the NuPhy HID session")
+        Task {
+            await keyboard.rebuildSession()
+        }
+    }
+
     private func handleKeyboardConnection(_ state: NuPhyHIDConnectionState) {
         hidAccessState = NuPhyHIDTransport.accessState
         switch state {
@@ -200,8 +216,12 @@ final class AppModel {
         let presentation = state.presentation(now: now)
         scheduleAgentExpiration(presentation.nextExpiration, now: now)
 
-        guard hidAccessState == .granted, isConnected, isDeliveryReady, !isSending,
-              deliveryState.shouldSend(presentation.command) else { return }
+        guard hidAccessState == .granted, isConnected, isDeliveryReady else { return }
+        if deliveryActivity.isSending {
+            deliveryActivity.requestRefresh()
+            return
+        }
+        guard deliveryState.shouldSend(presentation.command) else { return }
 
         perform {
             try await self.keyboard.send(presentation.command)
@@ -261,5 +281,29 @@ struct AgentCommandDeliveryState {
     mutating func connectionRestored() {
         lastDeliveredCommand = nil
         canAttemptDelivery = true
+    }
+}
+
+struct AgentDeliveryActivity {
+    private(set) var isSending = false
+    private var refreshPending = false
+
+    mutating func begin() -> Bool {
+        guard !isSending else { return false }
+        isSending = true
+        return true
+    }
+
+    mutating func requestRefresh() {
+        if isSending {
+            refreshPending = true
+        }
+    }
+
+    mutating func finish() -> Bool {
+        let shouldRefresh = refreshPending
+        isSending = false
+        refreshPending = false
+        return shouldRefresh
     }
 }

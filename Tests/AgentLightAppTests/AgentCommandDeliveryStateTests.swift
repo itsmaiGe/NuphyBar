@@ -28,3 +28,27 @@ func failedDeliveryWaitsForRecovery() {
 
     #expect(delivery.shouldSend(.waiting))
 }
+
+@Test("state changes during a HID send are coalesced into one follow-up refresh")
+func stateChangesDuringSendAreCoalesced() {
+    var activity = AgentDeliveryActivity()
+
+    let began = activity.begin()
+    #expect(began)
+    activity.requestRefresh()
+    activity.requestRefresh()
+
+    let shouldRefresh = activity.finish()
+    #expect(shouldRefresh)
+    #expect(!activity.isSending)
+}
+
+@Test("a completed HID send does not refresh without a new state event")
+func completedSendWithoutStateChangeDoesNotRefresh() {
+    var activity = AgentDeliveryActivity()
+
+    let began = activity.begin()
+    let shouldRefresh = activity.finish()
+    #expect(began)
+    #expect(!shouldRefresh)
+}

@@ -127,6 +127,12 @@ public final class NuPhyHIDTransport: @unchecked Sendable {
         }
     }
 
+    public func rebuildSession() {
+        queue.async { [weak self] in
+            self?.rebuildManagerSession()
+        }
+    }
+
     public func describe() throws -> String {
         try queue.sync {
             guard let device = currentDevice else {
@@ -231,6 +237,35 @@ public final class NuPhyHIDTransport: @unchecked Sendable {
         } else {
             restartWorkItem?.cancel()
             restartWorkItem = nil
+            startManager()
+        }
+    }
+
+    private func rebuildManagerSession() {
+        guard !isStopped else { return }
+        guard Self.accessState == .granted else {
+            refreshManager()
+            return
+        }
+
+        restartWorkItem?.cancel()
+        restartWorkItem = nil
+        reconnectBackoff.reset()
+
+        if let productName = currentDevice.flatMap(productName(of:)) ?? recoveryProductName {
+            currentDevice = nil
+            recoveryProductName = productName
+            publish(.connected(productName: productName, delivery: .rebuilding))
+        }
+
+        if cancellingSessionID != nil {
+            pendingRestartDelay = 0
+            return
+        } else if manager != nil {
+            pendingRestartDelay = 0
+            cancelManager()
+        } else {
+            pendingRestartDelay = nil
             startManager()
         }
     }
