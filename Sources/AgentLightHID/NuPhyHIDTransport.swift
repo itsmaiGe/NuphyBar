@@ -10,11 +10,10 @@ public enum NuPhyHIDAccessState: Equatable, Sendable {
     case unknown
 }
 
-public enum NuPhyHIDError: LocalizedError, CustomStringConvertible {
+public enum NuPhyHIDError: LocalizedError, CustomStringConvertible, Equatable, Sendable {
     case permissionDenied
     case managerOpenFailed(IOReturn)
     case deviceNotConnected
-    case deviceOpenFailed(IOReturn)
     case reportFailed(IOReturn)
 
     public var description: String {
@@ -22,7 +21,6 @@ public enum NuPhyHIDError: LocalizedError, CustomStringConvertible {
         case .permissionDenied: return "keyboard HID access has not been granted"
         case .managerOpenFailed(let status): return "could not open the HID manager (\(hex(status)))"
         case .deviceNotConnected: return "no compatible NuPhy Bluetooth keyboard is connected"
-        case .deviceOpenFailed(let status): return "could not open the NuPhy keyboard (\(hex(status)))"
         case .reportFailed(let status): return "sending a keyboard report failed (\(hex(status)))"
         }
     }
@@ -32,7 +30,6 @@ public enum NuPhyHIDError: LocalizedError, CustomStringConvertible {
         case .permissionDenied: return "需要允许 NuphyBar 访问键盘 HID 接口"
         case .managerOpenFailed: return "无法访问 macOS HID 设备管理器"
         case .deviceNotConnected: return "未找到已连接的 NuphyBar 兼容 NuPhy 键盘"
-        case .deviceOpenFailed: return "无法打开 NuPhy 键盘；设备可能正在重新连接"
         case .reportFailed: return "无法向 NuPhy 键盘发送灯光状态"
         }
     }
@@ -42,7 +39,18 @@ public enum NuPhyHIDError: LocalizedError, CustomStringConvertible {
     }
 }
 
-public final class NuPhyHIDTransport {
+public enum NuPhyHIDDeliveryState: Equatable, Sendable {
+    case ready
+    case recovering(NuPhyHIDError)
+}
+
+public enum NuPhyHIDConnectionState: Equatable, Sendable {
+    case disconnected
+    case connected(productName: String, delivery: NuPhyHIDDeliveryState)
+    case unavailable(NuPhyHIDError)
+}
+
+public final class NuPhyHIDTransport: @unchecked Sendable {
     static var deviceMatchingProperties: [String: Any] {
         [
             kIOHIDTransportKey as String: "Bluetooth Low Energy",
@@ -51,7 +59,40 @@ public final class NuPhyHIDTransport {
         ]
     }
 
-    public init() {}
+    public let connectionStates: AsyncStream<NuPhyHIDConnectionState>
+
+    private let queue = DispatchQueue(label: "com.maige.NuphyBar.HID")
+    private let stateContinuation: AsyncStream<NuPhyHIDConnectionState>.Continuation
+    private var manager: IOHIDManager?
+    private var activeSessionID: UUID?
+    private var cancellingSessionID: UUID?
+    private var currentDevice: IOHIDDevice?
+    private var recoveryProductName: String?
+    private var currentState: NuPhyHIDConnectionState?
+    private var reconnectBackoff = HIDReconnectBackoff()
+    private var restartWorkItem: DispatchWorkItem?
+    private var pendingRestartDelay: TimeInterval?
+    private var isStopped = false
+
+    public init() {
+        let stream = AsyncStream<NuPhyHIDConnectionState>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        connectionStates = stream.stream
+        stateContinuation = stream.continuation
+        queue.sync { startManager() }
+    }
+
+    deinit {
+        stateContinuation.finish()
+        queue.sync {
+            isStopped = true
+            restartWorkItem?.cancel()
+            restartWorkItem = nil
+            pendingRestartDelay = nil
+            cancelManager()
+        }
+    }
 
     public static var accessState: NuPhyHIDAccessState {
         switch IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) {
@@ -79,27 +120,26 @@ public final class NuPhyHIDTransport {
         return true
     }
 
-    public func describe() throws -> String {
-        try AgentLightTransmissionLock().withLock {
-            try withDevice { device in
-                let name = productName(of: device) ?? "NuPhy keyboard"
-                let transport = transport(of: device) ?? "unknown"
-                let maxOutput = maxOutputReportSize(of: device)
-                return [
-                    "Device: \(name)",
-                    "Transport: \(transport)",
-                    "Output report: 1",
-                    "Max output report size: \(maxOutput.map(String.init) ?? "unknown") bytes",
-                ].joined(separator: "\n")
-            }
+    public func refresh() {
+        queue.async { [weak self] in
+            self?.refreshManager()
         }
     }
 
-    public func connectedProductName() throws -> String {
-        try AgentLightTransmissionLock().withLock {
-            try withDevice { device in
-                productName(of: device) ?? "NuPhy 键盘"
+    public func describe() throws -> String {
+        try queue.sync {
+            guard let device = currentDevice else {
+                throw NuPhyHIDError.deviceNotConnected
             }
+            let name = productName(of: device) ?? "NuPhy keyboard"
+            let transport = transport(of: device) ?? "unknown"
+            let maxOutput = maxOutputReportSize(of: device)
+            return [
+                "Device: \(name)",
+                "Transport: \(transport)",
+                "Output report: 1",
+                "Max output report size: \(maxOutput.map(String.init) ?? "unknown") bytes",
+            ].joined(separator: "\n")
         }
     }
 
@@ -108,36 +148,174 @@ public final class NuPhyHIDTransport {
             let capsLockOn = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlphaShift)
             let mask = DirectStatusEncoder.encode(command, capsLockOn: capsLockOn)
 
-            try withDevice { device in
-                try setOutputReport(mask, on: device)
+            try queue.sync {
+                guard Self.accessState == .granted else {
+                    refreshManager()
+                    throw NuPhyHIDError.permissionDenied
+                }
+                guard let currentDevice else {
+                    throw NuPhyHIDError.deviceNotConnected
+                }
+
+                do {
+                    try setOutputReport(mask, on: currentDevice)
+                    reconnectBackoff.reset()
+                } catch let error as NuPhyHIDError {
+                    recoverFromReportFailure(error, productName: productName(of: currentDevice))
+                    throw error
+                }
             }
         }
     }
 
-    private func withDevice<T>(_ operation: (IOHIDDevice) throws -> T) throws -> T {
+    private func startManager() {
+        guard !isStopped, manager == nil, cancellingSessionID == nil else { return }
         guard Self.accessState == .granted else {
-            throw NuPhyHIDError.permissionDenied
+            publish(.unavailable(.permissionDenied))
+            return
         }
 
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         IOHIDManagerSetDeviceMatching(manager, Self.deviceMatchingProperties as CFDictionary)
-        let managerStatus = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
-        guard managerStatus == kIOReturnSuccess else {
-            throw NuPhyHIDError.managerOpenFailed(managerStatus)
+        let status = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+        guard status == kIOReturnSuccess else {
+            publish(.unavailable(.managerOpenFailed(status)))
+            scheduleManagerStart(after: reconnectBackoff.nextDelay())
+            return
         }
-        defer { IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone)) }
 
+        let sessionID = UUID()
+        let context = ManagerCallbackContext(owner: self, manager: manager, sessionID: sessionID)
+        let contextPointer = Unmanaged.passUnretained(context).toOpaque()
+        IOHIDManagerRegisterDeviceMatchingCallback(
+            manager,
+            Self.deviceMatchedCallback,
+            contextPointer
+        )
+        IOHIDManagerRegisterDeviceRemovalCallback(
+            manager,
+            Self.deviceRemovedCallback,
+            contextPointer
+        )
+        IOHIDManagerSetDispatchQueue(manager, queue)
+        IOHIDManagerSetCancelHandler(manager) { [context] in
+            _ = IOHIDManagerClose(context.manager, IOOptionBits(kIOHIDOptionsTypeNone))
+            context.owner?.managerDidCancel(sessionID: context.sessionID)
+        }
+
+        self.manager = manager
+        activeSessionID = sessionID
+        IOHIDManagerActivate(manager)
+        selectConnectedDevice(from: manager, sessionID: sessionID)
+    }
+
+    private func refreshManager() {
+        guard Self.accessState == .granted else {
+            recoveryProductName = nil
+            currentDevice = nil
+            reconnectBackoff.reset()
+            pendingRestartDelay = nil
+            restartWorkItem?.cancel()
+            restartWorkItem = nil
+            cancelManager()
+            publish(.unavailable(.permissionDenied))
+            return
+        }
+
+        reconnectBackoff.reset()
+        if cancellingSessionID != nil {
+            pendingRestartDelay = 0
+        } else if let manager, let activeSessionID {
+            selectConnectedDevice(from: manager, sessionID: activeSessionID)
+        } else {
+            restartWorkItem?.cancel()
+            restartWorkItem = nil
+            startManager()
+        }
+    }
+
+    private func selectConnectedDevice(from manager: IOHIDManager, sessionID: UUID) {
+        guard activeSessionID == sessionID else { return }
         guard let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>,
               let device = devices.first(where: isCompatible) else {
-            throw NuPhyHIDError.deviceNotConnected
+            currentDevice = nil
+            recoveryProductName = nil
+            publish(.disconnected)
+            return
         }
+        handleMatchedDevice(device, sessionID: sessionID)
+    }
 
-        let deviceStatus = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
-        guard deviceStatus == kIOReturnSuccess else {
-            throw NuPhyHIDError.deviceOpenFailed(deviceStatus)
+    private func handleMatchedDevice(_ device: IOHIDDevice, sessionID: UUID) {
+        guard activeSessionID == sessionID, isCompatible(device) else { return }
+        if let currentDevice, CFEqual(currentDevice, device) { return }
+
+        let wasRecovering = recoveryProductName != nil
+        currentDevice = device
+        recoveryProductName = nil
+        if !wasRecovering {
+            reconnectBackoff.reset()
         }
-        defer { IOHIDDeviceClose(device, IOOptionBits(kIOHIDOptionsTypeNone)) }
-        return try operation(device)
+        publish(.connected(
+            productName: productName(of: device) ?? "NuPhy 键盘",
+            delivery: .ready
+        ))
+    }
+
+    private func handleRemovedDevice(_ device: IOHIDDevice, sessionID: UUID) {
+        guard activeSessionID == sessionID,
+              let currentDevice,
+              CFEqual(currentDevice, device) else { return }
+        self.currentDevice = nil
+        recoveryProductName = nil
+        reconnectBackoff.reset()
+        publish(.disconnected)
+    }
+
+    private func recoverFromReportFailure(_ error: NuPhyHIDError, productName: String?) {
+        let productName = productName ?? "NuPhy 键盘"
+        recoveryProductName = productName
+        currentDevice = nil
+        publish(.connected(
+            productName: productName,
+            delivery: .recovering(error)
+        ))
+        pendingRestartDelay = reconnectBackoff.nextDelay()
+        cancelManager()
+    }
+
+    private func cancelManager() {
+        guard let manager, let activeSessionID else { return }
+        self.manager = nil
+        self.activeSessionID = nil
+        cancellingSessionID = activeSessionID
+        IOHIDManagerCancel(manager)
+    }
+
+    private func managerDidCancel(sessionID: UUID) {
+        guard cancellingSessionID == sessionID else { return }
+        cancellingSessionID = nil
+        guard let delay = pendingRestartDelay, !isStopped else { return }
+        pendingRestartDelay = nil
+        scheduleManagerStart(after: delay)
+    }
+
+    private func scheduleManagerStart(after delay: TimeInterval) {
+        guard !isStopped else { return }
+        restartWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.restartWorkItem = nil
+            self.startManager()
+        }
+        restartWorkItem = workItem
+        queue.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    private func publish(_ state: NuPhyHIDConnectionState) {
+        guard state != currentState else { return }
+        currentState = state
+        stateContinuation.yield(state)
     }
 
     private func isCompatible(_ device: IOHIDDevice) -> Bool {
@@ -175,6 +353,40 @@ public final class NuPhyHIDTransport {
         }
         guard status == kIOReturnSuccess else {
             throw NuPhyHIDError.reportFailed(status)
+        }
+    }
+
+    private static let deviceMatchedCallback: IOHIDDeviceCallback = {
+        context, result, _, device in
+        guard result == kIOReturnSuccess, let context else { return }
+        let callbackContext = Unmanaged<ManagerCallbackContext>
+            .fromOpaque(context).takeUnretainedValue()
+        callbackContext.owner?.handleMatchedDevice(
+            device,
+            sessionID: callbackContext.sessionID
+        )
+    }
+
+    private static let deviceRemovedCallback: IOHIDDeviceCallback = {
+        context, _, _, device in
+        guard let context else { return }
+        let callbackContext = Unmanaged<ManagerCallbackContext>
+            .fromOpaque(context).takeUnretainedValue()
+        callbackContext.owner?.handleRemovedDevice(
+            device,
+            sessionID: callbackContext.sessionID
+        )
+    }
+
+    private final class ManagerCallbackContext: @unchecked Sendable {
+        weak var owner: NuPhyHIDTransport?
+        let manager: IOHIDManager
+        let sessionID: UUID
+
+        init(owner: NuPhyHIDTransport, manager: IOHIDManager, sessionID: UUID) {
+            self.owner = owner
+            self.manager = manager
+            self.sessionID = sessionID
         }
     }
 }

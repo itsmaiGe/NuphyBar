@@ -4,8 +4,12 @@ import AgentLightHID
 actor KeyboardController {
     private let transport = NuPhyHIDTransport()
 
-    func productName() throws -> String {
-        try transport.connectedProductName()
+    func connectionStates() -> AsyncStream<NuPhyHIDConnectionState> {
+        transport.connectionStates
+    }
+
+    func refresh() {
+        transport.refresh()
     }
 
     func send(_ command: AgentLightCommand) throws {

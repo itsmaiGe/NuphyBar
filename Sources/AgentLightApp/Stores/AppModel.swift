@@ -22,9 +22,9 @@ final class AppModel {
     private let integrations: IntegrationController
     @ObservationIgnored private var deliveryState = AgentCommandDeliveryState()
     @ObservationIgnored private var agentMonitorTask: Task<Void, Never>?
-    @ObservationIgnored private var connectionMonitorTask: Task<Void, Never>?
+    @ObservationIgnored private var keyboardConnectionTask: Task<Void, Never>?
     @ObservationIgnored private var integrationNoticeTask: Task<Void, Never>?
-    @ObservationIgnored private var isRefreshingConnection = false
+    @ObservationIgnored private var isDeliveryReady = false
     @ObservationIgnored private var isSending = false
 
     init() {
@@ -32,42 +32,23 @@ final class AppModel {
             .appending(path: "Contents/Helpers/agent-light")
             .path
         integrations = IntegrationController(helperPath: helperPath)
+        startKeyboardConnectionObserver()
         refreshConnection()
         refreshIntegrations()
         startAgentMonitor()
-        startConnectionMonitor()
     }
 
     func refreshConnection() {
         hidAccessState = NuPhyHIDTransport.accessState
-        guard hidAccessState == .granted else {
+        if hidAccessState != .granted {
             isConnected = false
+            isDeliveryReady = false
             keyboardModel = nil
             keyboardError = nil
-            return
         }
-        guard !isRefreshingConnection else { return }
-        isRefreshingConnection = true
 
         Task {
-            defer { isRefreshingConnection = false }
-            do {
-                let productName = try await keyboard.productName()
-                let wasConnected = isConnected
-                keyboardModel = productName
-                isConnected = true
-                keyboardError = nil
-                if !wasConnected {
-                    deliveryState.connectionRestored()
-                    hidLogger.info("NuPhy Bluetooth keyboard connection is ready")
-                    applyAgentStateIfChanged()
-                }
-            } catch {
-                isConnected = false
-                keyboardModel = nil
-                keyboardError = error.localizedDescription
-                hidLogger.error("NuPhy keyboard connection check failed: \(String(describing: error), privacy: .public)")
-            }
+            await keyboard.refresh()
         }
     }
 
@@ -117,10 +98,10 @@ final class AppModel {
             defer { isSending = false }
             do {
                 try await operation()
-                isConnected = true
             } catch {
-                isConnected = false
-                deliveryState.markFailed()
+                if error is NuPhyHIDError {
+                    deliveryState.markFailed()
+                }
                 keyboardError = error.localizedDescription
                 hidLogger.error("Keyboard state send failed: \(String(describing: error), privacy: .public)")
             }
@@ -136,17 +117,53 @@ final class AppModel {
         }
     }
 
-    private func startConnectionMonitor() {
-        connectionMonitorTask = Task { [weak self] in
-            while !Task.isCancelled {
-                self?.refreshConnection()
-                try? await Task.sleep(for: .seconds(5))
+    private func startKeyboardConnectionObserver() {
+        keyboardConnectionTask = Task { [weak self] in
+            guard let states = await self?.keyboard.connectionStates() else { return }
+            for await state in states {
+                guard !Task.isCancelled else { return }
+                self?.handleKeyboardConnection(state)
             }
         }
     }
 
+    private func handleKeyboardConnection(_ state: NuPhyHIDConnectionState) {
+        hidAccessState = NuPhyHIDTransport.accessState
+        switch state {
+        case .disconnected:
+            isConnected = false
+            isDeliveryReady = false
+            keyboardModel = nil
+            keyboardError = NuPhyHIDError.deviceNotConnected.localizedDescription
+
+        case .connected(let productName, .recovering(let error)):
+            keyboardModel = productName
+            isConnected = true
+            isDeliveryReady = false
+            keyboardError = error.localizedDescription
+
+        case .connected(let productName, .ready):
+            let shouldReplayState = !isDeliveryReady
+            keyboardModel = productName
+            isConnected = true
+            isDeliveryReady = true
+            keyboardError = nil
+            if shouldReplayState {
+                deliveryState.connectionRestored()
+                hidLogger.info("NuPhy Bluetooth keyboard HID session is ready")
+                applyAgentStateIfChanged()
+            }
+
+        case .unavailable(let error):
+            isConnected = false
+            isDeliveryReady = false
+            keyboardModel = nil
+            keyboardError = error == .permissionDenied ? nil : error.localizedDescription
+        }
+    }
+
     private func applyAgentStateIfChanged() {
-        guard hidAccessState == .granted, isConnected, !isSending,
+        guard hidAccessState == .granted, isConnected, isDeliveryReady, !isSending,
               var state = try? AgentStateFile().load() else { return }
         let command = state.displayCommand(now: Int64(Date().timeIntervalSince1970))
         guard deliveryState.shouldSend(command) else { return }
@@ -170,20 +187,24 @@ final class AppModel {
 
 struct AgentCommandDeliveryState {
     private var lastDeliveredCommand: AgentLightCommand?
+    private var canAttemptDelivery = true
 
     func shouldSend(_ command: AgentLightCommand) -> Bool {
-        command != lastDeliveredCommand
+        canAttemptDelivery && command != lastDeliveredCommand
     }
 
     mutating func markDelivered(_ command: AgentLightCommand) {
         lastDeliveredCommand = command
+        canAttemptDelivery = true
     }
 
     mutating func markFailed() {
         lastDeliveredCommand = nil
+        canAttemptDelivery = false
     }
 
     mutating func connectionRestored() {
         lastDeliveredCommand = nil
+        canAttemptDelivery = true
     }
 }

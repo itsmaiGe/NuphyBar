@@ -8,13 +8,12 @@ struct AgentLightCLI {
     static func main() {
         do {
             let request = try CommandLineRequest.parse(Array(CommandLine.arguments.dropFirst()))
-            let transport = NuPhyHIDTransport()
 
             switch request {
             case .describe:
-                print(try transport.describe())
+                print(try NuPhyHIDTransport().describe())
             case .send(let command):
-                try transport.send(command)
+                try NuPhyHIDTransport().send(command)
             case .hook(let provider, let eventName):
                 let payload = FileHandle.standardInput.readDataToEndOfFile()
                 if let event = try? HookEventMapper.map(

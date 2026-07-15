@@ -47,3 +47,28 @@ func compatibleNuPhyKeyboards() {
         maxOutputReportSize: 1
     ))
 }
+
+@Test("HID recovery backs off and stays bounded until a report succeeds")
+func boundedReconnectBackoff() {
+    var backoff = HIDReconnectBackoff()
+
+    #expect((0..<6).map { _ in backoff.nextDelay() } == [1, 2, 5, 10, 30, 30])
+
+    backoff.reset()
+    #expect(backoff.nextDelay() == 1)
+}
+
+@Test("report recovery does not pretend the keyboard was disconnected")
+func recoveryKeepsKeyboardPresence() {
+    let state = NuPhyHIDConnectionState.connected(
+        productName: "NuPhy Air60 V2-1",
+        delivery: .recovering(.reportFailed(kIOReturnNotPermitted))
+    )
+
+    guard case .connected(let productName, .recovering(let error)) = state else {
+        Issue.record("expected a connected keyboard with a recovering report channel")
+        return
+    }
+    #expect(productName == "NuPhy Air60 V2-1")
+    #expect(error == .reportFailed(kIOReturnNotPermitted))
+}

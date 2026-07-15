@@ -15,12 +15,16 @@ func reconnectingReplaysTheCurrentState() {
     #expect(delivery.shouldSend(.working))
 }
 
-@Test("a failed delivery is eligible for retry")
-func failedDeliveryCanRetry() {
+@Test("a failed delivery waits for the HID session to recover")
+func failedDeliveryWaitsForRecovery() {
     var delivery = AgentCommandDeliveryState()
 
     #expect(delivery.shouldSend(.waiting))
     delivery.markFailed()
+
+    #expect(!delivery.shouldSend(.waiting))
+
+    delivery.connectionRestored()
 
     #expect(delivery.shouldSend(.waiting))
 }
