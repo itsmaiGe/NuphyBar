@@ -19,6 +19,11 @@ def without_dfu_suffix(data: bytes) -> bytes:
     return data[:-16]
 
 
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise SystemExit(message)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--official", type=pathlib.Path, required=True)
@@ -33,12 +38,18 @@ def main() -> None:
     hook_offset = HOOK_ADDRESS - FLASH_BASE
 
     expected_call = encode_thumb_bl(CALL_SITE, HOOK_ADDRESS)
-    assert candidate[call_offset : call_offset + 4] == expected_call
-    assert candidate[:call_offset] == official[:call_offset]
-    assert candidate[call_offset + 4 : len(official)] == official[call_offset + 4 :]
-    assert candidate[len(official) : hook_offset] == b"\xFF" * (hook_offset - len(official))
-    assert candidate[hook_offset:] == hook
-    assert len(candidate) == hook_offset + len(hook)
+    require(candidate[call_offset : call_offset + 4] == expected_call, "candidate call site mismatch")
+    require(candidate[:call_offset] == official[:call_offset], "candidate prefix differs from official firmware")
+    require(
+        candidate[call_offset + 4 : len(official)] == official[call_offset + 4 :],
+        "candidate official firmware region was modified",
+    )
+    require(
+        candidate[len(official) : hook_offset] == b"\xFF" * (hook_offset - len(official)),
+        "candidate padding before hook is not erased flash",
+    )
+    require(candidate[hook_offset:] == hook, "candidate hook payload mismatch")
+    require(len(candidate) == hook_offset + len(hook), "candidate length mismatch")
     print("candidate layout verified")
 
 
