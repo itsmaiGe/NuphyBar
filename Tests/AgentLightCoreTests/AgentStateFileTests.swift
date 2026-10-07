@@ -44,8 +44,23 @@ func missingStateStartsEmpty() throws {
     #expect(try file.load() == AgentState())
 }
 
-@Test("a damaged transient state file repairs itself on the next event")
-func damagedStateRepairsOnNextEvent() throws {
+@Test("ending one session preserves other active sessions")
+func endingOneSessionPreservesOthers() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let file = AgentStateFile(url: directory.appending(path: "state.json"))
+
+    _ = try file.apply(.init(provider: .codex, sessionID: "one", status: .working), now: 100)
+    _ = try file.apply(.init(provider: .claudeCode, sessionID: "two", status: .waiting), now: 101)
+
+    _ = try file.apply(.init(provider: .codex, sessionID: "one", status: .idle), now: 102)
+
+    #expect(try file.load().sessions.count == 1)
+}
+
+@Test("a damaged state file is reported and preserved")
+func damagedStateIsPreserved() throws {
     let directory = FileManager.default.temporaryDirectory
         .appending(path: UUID().uuidString, directoryHint: .isDirectory)
     let url = directory.appending(path: "state.json")
@@ -54,7 +69,8 @@ func damagedStateRepairsOnNextEvent() throws {
     try Data("not-json".utf8).write(to: url)
 
     let file = AgentStateFile(url: url)
-    #expect(try file.apply(.init(provider: .codex, sessionID: "one", status: .working), now: 100)
-            == .working)
-    #expect(try file.load().sessions.count == 1)
+    #expect(throws: AgentStateFileError.self) {
+        try file.apply(.init(provider: .codex, sessionID: "one", status: .working), now: 100)
+    }
+    #expect(try Data(contentsOf: url) == Data("not-json".utf8))
 }

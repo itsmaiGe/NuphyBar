@@ -20,9 +20,20 @@ func codexHookMapping() throws {
     let payload = Data(#"{"session_id":"codex-1"}"#.utf8)
 
     #expect(try HookEventMapper.map(provider: .codex, eventName: "UserPromptSubmit", payload: payload)?.status == .working)
+    #expect(try HookEventMapper.map(provider: .codex, eventName: "PreToolUse", payload: payload)?.status == .toolRunning)
     #expect(try HookEventMapper.map(provider: .codex, eventName: "PermissionRequest", payload: payload)?.status == .waiting)
     #expect(try HookEventMapper.map(provider: .codex, eventName: "PostToolUse", payload: payload)?.status == .working)
     #expect(try HookEventMapper.map(provider: .codex, eventName: "Stop", payload: payload)?.status == .complete)
+    #expect(try HookEventMapper.map(provider: .codex, eventName: "SessionEnd", payload: payload)?.status == .idle)
+    #expect(HookEventMapper.response(provider: .codex, eventName: "Stop") == Data("{}".utf8))
+}
+
+@Test("Codex turn identity is retained without recording transcript or prompt text")
+func codexTurnIdentity() throws {
+    let payload = Data(#"{"session_id":"session","turn_id":"turn","prompt":"private","transcript_path":"/private/chat"}"#.utf8)
+    let event = try HookEventMapper.map(provider: .codex, eventName: "UserPromptSubmit", payload: payload)
+    #expect(event?.turnID == "turn")
+    #expect(event?.sessionID == "session")
 }
 
 @Test("Claude only treats notifications that need user input as waiting")
@@ -57,7 +68,7 @@ func antigravityHookResponses() throws {
 
     #expect(try JSONSerialization.jsonObject(with: invocation) as? [String: String] == [:])
     #expect((try JSONSerialization.jsonObject(with: stop) as? [String: String])?["decision"] == "stop")
-    #expect(HookEventMapper.response(provider: .codex, eventName: "Stop") == nil)
+    #expect(HookEventMapper.response(provider: .codex, eventName: "Stop") == Data("{}".utf8))
 }
 
 @Test("unknown hooks are ignored and malformed payloads are rejected")

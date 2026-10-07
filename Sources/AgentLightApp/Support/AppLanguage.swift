@@ -19,20 +19,40 @@ enum AppText {
     case connectionStatus
     case lightStatus
     case bluetoothConnected
+    case wiredConnected
     case checkAgain
     case allowAccess
-    case nuphyKeyboard
+    case compatibleKeyboard
     case checkingKeyboard
     case accessRequired
     case keyboardNotFound
+    case keyboardRecovering
+    case keyboardSendFailed
+    case recoveryDiagnostics
+    case exportDiagnostics
     case working
     case blueFlow
+    case thinking
+    case redBreath
+    case toolRunning
+    case solidRed
+    case outputting
+    case yellowBreath
     case waiting
     case amberFlash
+    case permissionRequired
+    case blueFastBreath
     case taskComplete
     case greenBreath
+    case solidGreen
+    case error
+    case redFlash
     case idle
     case factoryEffect
+    case fullKeyboardRed
+    case fullKeyboardYellow
+    case fullKeyboardBlue
+    case fullKeyboardGreen
     case language
     case launchAtLogin
     case launchAtLoginApproval
@@ -106,34 +126,74 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case (.english, .lightStatus): "Light Status"
         case (.simplifiedChinese, .bluetoothConnected): "蓝牙已连接"
         case (.english, .bluetoothConnected): "Bluetooth Connected"
+        case (.simplifiedChinese, .wiredConnected): "有线已连接"
+        case (.english, .wiredConnected): "USB Connected"
         case (.simplifiedChinese, .checkAgain): "重新检测"
         case (.english, .checkAgain): "Check Again"
         case (.simplifiedChinese, .allowAccess): "允许访问"
         case (.english, .allowAccess): "Allow Access"
-        case (.simplifiedChinese, .nuphyKeyboard): "NuPhy 键盘"
-        case (.english, .nuphyKeyboard): "NuPhy Keyboard"
+        case (.simplifiedChinese, .compatibleKeyboard): "兼容键盘"
+        case (.english, .compatibleKeyboard): "Compatible Keyboard"
         case (.simplifiedChinese, .checkingKeyboard): "正在检查键盘…"
         case (.english, .checkingKeyboard): "Checking keyboard…"
         case (.simplifiedChinese, .accessRequired): "需要键盘访问权限"
         case (.english, .accessRequired): "Keyboard access required"
-        case (.simplifiedChinese, .keyboardNotFound): "未找到兼容的 NuPhy 键盘"
-        case (.english, .keyboardNotFound): "No compatible NuPhy keyboard found"
+        case (.simplifiedChinese, .keyboardNotFound): "未找到兼容键盘"
+        case (.english, .keyboardNotFound): "No compatible keyboard found"
+        case (.simplifiedChinese, .keyboardRecovering): "正在恢复键盘连接…"
+        case (.english, .keyboardRecovering): "Recovering keyboard connection…"
+        case (.simplifiedChinese, .keyboardSendFailed): "灯光发送失败"
+        case (.english, .keyboardSendFailed): "Light status delivery failed"
+        case (.simplifiedChinese, .recoveryDiagnostics): "恢复诊断"
+        case (.english, .recoveryDiagnostics): "Recovery Diagnostics"
+        case (.simplifiedChinese, .exportDiagnostics): "导出"
+        case (.english, .exportDiagnostics): "Export"
         case (.simplifiedChinese, .working): "工作中"
         case (.english, .working): "Working"
         case (.simplifiedChinese, .blueFlow): "蓝色流光"
         case (.english, .blueFlow): "Blue Flow"
+        case (.simplifiedChinese, .thinking): "正在思考"
+        case (.english, .thinking): "Thinking"
+        case (.simplifiedChinese, .redBreath): "红色慢呼吸"
+        case (.english, .redBreath): "Slow Red Breath"
+        case (.simplifiedChinese, .toolRunning): "执行工具"
+        case (.english, .toolRunning): "Tool Running"
+        case (.simplifiedChinese, .solidRed): "红色常亮"
+        case (.english, .solidRed): "Solid Red"
+        case (.simplifiedChinese, .outputting): "正在输出"
+        case (.english, .outputting): "Outputting"
+        case (.simplifiedChinese, .yellowBreath): "黄色慢呼吸"
+        case (.english, .yellowBreath): "Slow Yellow Breath"
         case (.simplifiedChinese, .waiting): "等待操作"
         case (.english, .waiting): "Waiting"
         case (.simplifiedChinese, .amberFlash): "琥珀闪烁"
         case (.english, .amberFlash): "Amber Flash"
+        case (.simplifiedChinese, .permissionRequired): "等待确认"
+        case (.english, .permissionRequired): "Permission Required"
+        case (.simplifiedChinese, .blueFastBreath): "蓝色快呼吸"
+        case (.english, .blueFastBreath): "Fast Blue Breath"
         case (.simplifiedChinese, .taskComplete): "任务完成"
         case (.english, .taskComplete): "Complete"
         case (.simplifiedChinese, .greenBreath): "绿色呼吸"
         case (.english, .greenBreath): "Green Breath"
+        case (.simplifiedChinese, .solidGreen): "绿色常亮"
+        case (.english, .solidGreen): "Solid Green"
+        case (.simplifiedChinese, .error): "发生错误"
+        case (.english, .error): "Error"
+        case (.simplifiedChinese, .redFlash): "红色快闪"
+        case (.english, .redFlash): "Fast Red Flash"
         case (.simplifiedChinese, .idle): "待机"
         case (.english, .idle): "Idle"
         case (.simplifiedChinese, .factoryEffect): "恢复原厂灯效"
         case (.english, .factoryEffect): "Factory Effect"
+        case (.simplifiedChinese, .fullKeyboardRed): "整键红色常亮"
+        case (.english, .fullKeyboardRed): "Full-key Red"
+        case (.simplifiedChinese, .fullKeyboardYellow): "整键黄色常亮"
+        case (.english, .fullKeyboardYellow): "Full-key Yellow"
+        case (.simplifiedChinese, .fullKeyboardBlue): "整键蓝色常亮"
+        case (.english, .fullKeyboardBlue): "Full-key Blue"
+        case (.simplifiedChinese, .fullKeyboardGreen): "整键绿色常亮"
+        case (.english, .fullKeyboardGreen): "Full-key Green"
         case (.simplifiedChinese, .language): "语言"
         case (.english, .language): "Language"
         case (.simplifiedChinese, .launchAtLogin): "开机时自动启动"
@@ -142,8 +202,8 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case (.english, .launchAtLoginApproval): "Allow NuphyBar in System Settings > Login Items"
         case (.simplifiedChinese, .launchAtLoginFailed): "无法更改开机自启："
         case (.english, .launchAtLoginFailed): "Could not change launch at login:"
-        case (.simplifiedChinese, .aboutDescription): "让 NuPhy 侧灯显示本机 Agent 状态"
-        case (.english, .aboutDescription): "Show local Agent status on your NuPhy side lights"
+        case (.simplifiedChinese, .aboutDescription): "让兼容键盘显示本机 Agent 状态"
+        case (.english, .aboutDescription): "Show local Agent status on compatible keyboards"
         case (.simplifiedChinese, .followOnX): "作者麦格 · 在 X 上关注我"
         case (.english, .followOnX): "Maige · Follow me on X"
         }

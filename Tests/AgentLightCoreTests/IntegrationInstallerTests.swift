@@ -2,6 +2,20 @@ import Foundation
 import Testing
 @testable import AgentLightCore
 
+@Test("Codex session cleanup respects the three-second hook limit")
+func codexSessionEndTimeout() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let installer = IntegrationInstaller(homeURL: directory, helperPath: "/test/agent-light")
+    try installer.install(.codex)
+    let data = try Data(contentsOf: directory.appending(path: ".codex/hooks.json"))
+    let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let hooks = try #require(root["hooks"] as? [String: Any])
+    let groups = try #require(hooks["SessionEnd"] as? [[String: Any]])
+    let handlers = try #require(groups.first?["hooks"] as? [[String: Any]])
+    #expect(handlers.first?["timeout"] as? Int == 3)
+}
+
 @Test("Codex install enables hooks and preserves notify plus existing hooks")
 func codexInstallPreservesConfiguration() throws {
     let home = try temporaryHome()
@@ -26,8 +40,12 @@ func codexInstallPreservesConfiguration() throws {
     let stop = try #require(hooks["Stop"] as? [[String: Any]])
     #expect(stop.count == 2)
     #expect(hooks["UserPromptSubmit"] != nil)
+    let toolGroups = try #require(hooks["PreToolUse"] as? [[String: Any]])
+    let toolHandlers = try #require(toolGroups.first?["hooks"] as? [[String: Any]])
+    #expect((toolHandlers.first?["command"] as? String)?.hasSuffix("hook codex PreToolUse") == true)
     #expect(hooks["PermissionRequest"] != nil)
     #expect(hooks["PostToolUse"] != nil)
+    #expect(hooks["SessionEnd"] != nil)
 }
 
 @Test("installing a new app replaces hooks that point to an older app copy")
@@ -113,9 +131,20 @@ func codexIntegrationRecognizesTrustedHooks() throws {
 
     [hooks.state."\(hooksPath):stop:0:0"]
     trusted_hash = "sha256:four"
+
+    [hooks.state."\(hooksPath):session_end:0:0"]
+    trusted_hash = "sha256:five"
     """
     try Data(config.utf8).write(to: home.appending(path: ".codex/config.toml"))
 
+    #expect(!installer.isReady(.codex))
+    let withToolTrust = config + """
+
+
+    [hooks.state."\(hooksPath):pre_tool_use:0:0"]
+    trusted_hash = "sha256:six"
+    """
+    try Data(withToolTrust.utf8).write(to: home.appending(path: ".codex/config.toml"))
     #expect(installer.isReady(.codex))
 }
 

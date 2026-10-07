@@ -2,9 +2,17 @@ import SwiftUI
 
 enum LightStripEffect {
     case working
+    case thinking
+    case toolRunning
+    case outputting
     case waiting
     case complete
+    case permissionRequired
+    case solidGreen
+    case error
     case idle
+    case solidYellow
+    case solidBlue
 }
 
 enum LightStripStyle {
@@ -67,24 +75,62 @@ enum LightStripModel {
                 brightness: 0.18 + 0.82 * wave,
                 opacity: 1
             )
+        case .thinking:
+            let breath = 0.5 + 0.5 * sin(time * 3.1)
+            return LightStripSample(
+                hue: 0,
+                saturation: 1,
+                brightness: 0.18 + 0.82 * breath,
+                opacity: 1
+            )
+        case .toolRunning:
+            return LightStripSample(hue: 0, saturation: 1, brightness: 1, opacity: 1)
+        case .outputting:
+            let breath = 0.5 + 0.5 * sin(time * 3.1)
+            return LightStripSample(
+                hue: 0.105,
+                saturation: 1,
+                brightness: 0.18 + 0.82 * breath,
+                opacity: 1
+            )
         case .waiting:
+            let step = Int(positiveRemainder(time, modulus: 1.28) / 0.032)
+            let pulseStep = step < 3 ? step : (step >= 6 && step < 9 ? step - 6 : nil)
+            return LightStripSample(hue: 0.095, saturation: 0.9,
+                brightness: pulseStep.map { Double(255 - $0 * 96) / 255 } ?? 0, opacity: 1)
+        case .complete:
+            let breath = 0.5 + 0.5 * sin(time * 3.1)
+            return LightStripSample(hue: 0.38, saturation: 0.82,
+                brightness: 0.58 + 0.42 * breath, opacity: 1)
+        case .permissionRequired:
             let pulse = 0.5 + 0.5 * sin(time * 6.2)
             return LightStripSample(
-                hue: 0.095,
+                hue: 0.604,
                 saturation: 0.9,
                 brightness: 0.46 + 0.54 * pulse,
                 opacity: 1
             )
-        case .complete:
-            let breath = 0.5 + 0.5 * sin(time * 3.1)
+        case .solidGreen:
             return LightStripSample(
                 hue: 0.38,
                 saturation: 0.82,
-                brightness: 0.58 + 0.42 * breath,
+                brightness: 1,
+                opacity: 1
+            )
+        case .error:
+            let visible = positiveRemainder(time, modulus: 0.4) < 0.2
+            return LightStripSample(
+                hue: 0,
+                saturation: 1,
+                brightness: visible ? 1 : 0,
                 opacity: 1
             )
         case .idle:
             return interpolate(idleColorAnchors(time: time), at: position)
+        case .solidYellow:
+            return LightStripSample(hue: 0.115, saturation: 1, brightness: 1, opacity: 1)
+        case .solidBlue:
+            return LightStripSample(hue: 0.6, saturation: 1, brightness: 1, opacity: 1)
         }
     }
 

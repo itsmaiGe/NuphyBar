@@ -43,10 +43,14 @@ public enum HookEventMapper {
               let sessionID = input.resolvedSessionID, !sessionID.isEmpty else {
             throw HookEventError.invalidPayload
         }
-        return AgentEvent(provider: provider, sessionID: sessionID, status: status)
+        return AgentEvent(provider: provider, sessionID: sessionID, status: status,
+            turnID: provider == .codex ? input.turnID : nil)
     }
 
     public static func response(provider: AgentProvider, eventName: String) -> Data? {
+        if provider == .codex, eventName == "Stop" {
+            return Data("{}".utf8)
+        }
         guard provider == .antigravity else { return nil }
         switch eventName {
         case "PreInvocation": return Data("{}".utf8)
@@ -57,12 +61,16 @@ public enum HookEventMapper {
 
     private static func status(provider: AgentProvider, eventName: String) -> AgentSessionStatus? {
         switch (provider, eventName) {
-        case (.codex, "UserPromptSubmit"), (.codex, "PreToolUse"), (.codex, "PostToolUse"):
+        case (.codex, "UserPromptSubmit"), (.codex, "PostToolUse"):
             return .working
+        case (.codex, "PreToolUse"):
+            return .toolRunning
         case (.codex, "PermissionRequest"):
             return .waiting
         case (.codex, "Stop"):
             return .complete
+        case (.codex, "SessionEnd"):
+            return .idle
         case (.claudeCode, "UserPromptSubmit"), (.claudeCode, "PreToolUse"), (.claudeCode, "PostToolUse"):
             return .working
         case (.claudeCode, "PermissionRequest"):
@@ -86,6 +94,7 @@ public enum HookEventMapper {
 }
 
 private struct HookInput: Decodable {
+    let turnID: String?
     let sessionID: String?
     let camelCaseSessionID: String?
     let notificationType: String?
@@ -102,6 +111,7 @@ private struct HookInput: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case turnID = "turn_id"
         case sessionID = "session_id"
         case camelCaseSessionID = "sessionId"
         case notificationType = "notification_type"

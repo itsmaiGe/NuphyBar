@@ -21,7 +21,17 @@ func attentionPriorities() {
     #expect(state.displayCommand(now: 102) == .error)
 }
 
-@Test("idle removes a session and expired states are pruned")
+@Test("tool execution and output have distinct rich commands")
+func richWorkingStates() {
+    var state = AgentState()
+    state.apply(.init(provider: .codex, sessionID: "one", status: .outputting), now: 100)
+    #expect(state.displayCommand(now: 100) == .outputting)
+
+    state.apply(.init(provider: .claudeCode, sessionID: "two", status: .toolRunning), now: 101)
+    #expect(state.displayCommand(now: 101) == .toolRunning)
+}
+
+@Test("idle removes a session and terminal states are pruned")
 func idleAndExpiry() {
     var state = AgentState()
     let key = AgentSessionKey(provider: .codex, sessionID: "one")
@@ -33,6 +43,16 @@ func idleAndExpiry() {
 
     state.apply(.init(provider: .claudeCode, sessionID: "two", status: .complete), now: 200)
     #expect(state.displayCommand(now: 200 + AgentState.completionRetention + 1) == .idle)
+}
+
+@Test("active states remain until an explicit lifecycle event ends them")
+func activeStatesDoNotExpire() {
+    var state = AgentState()
+    state.apply(.init(provider: .codex, sessionID: "one", status: .working), now: 100)
+
+    let presentation = state.presentation(now: 100 + 24 * 60 * 60)
+    #expect(presentation.command == .working)
+    #expect(presentation.nextExpiration == nil)
 }
 
 @Test("an error is shown briefly and then returns to idle")
@@ -56,7 +76,7 @@ func presentationSchedulesEarliestExpiration() {
 
     let afterExpiry = state.presentation(now: 200 + AgentState.completionRetention + 1)
     #expect(afterExpiry.command == .working)
-    #expect(afterExpiry.nextExpiration == 100 + AgentState.activeRetention + 1)
+    #expect(afterExpiry.nextExpiration == nil)
 }
 
 @Test("an empty presentation has no expiration timer")

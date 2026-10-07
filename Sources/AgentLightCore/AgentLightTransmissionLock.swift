@@ -29,7 +29,7 @@ public struct AgentLightTransmissionLock: Sendable {
         )
         let descriptor = Darwin.open(
             url.path,
-            O_CREAT | O_RDWR | O_EXLOCK,
+            O_CREAT | O_RDWR | O_EXLOCK | O_CLOEXEC,
             S_IRUSR | S_IWUSR
         )
         guard descriptor >= 0 else { throw AgentLightTransmissionLockError.openFailed }

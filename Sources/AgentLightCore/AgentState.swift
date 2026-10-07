@@ -11,6 +11,8 @@ public enum AgentProvider: String, Codable, CaseIterable, Sendable {
 public enum AgentSessionStatus: Codable, Equatable, Sendable {
     case idle
     case working
+    case toolRunning
+    case outputting
     case waiting
     case complete
     case error
@@ -30,11 +32,13 @@ public struct AgentEvent: Equatable, Sendable {
     public let provider: AgentProvider
     public let sessionID: String
     public let status: AgentSessionStatus
+    public let turnID: String?
 
-    public init(provider: AgentProvider, sessionID: String, status: AgentSessionStatus) {
+    public init(provider: AgentProvider, sessionID: String, status: AgentSessionStatus, turnID: String? = nil) {
         self.provider = provider
         self.sessionID = sessionID
         self.status = status
+        self.turnID = turnID
     }
 }
 
@@ -50,7 +54,6 @@ public struct AgentStatePresentation: Equatable, Sendable {
 
 public struct AgentState: Codable, Equatable, Sendable {
     public static let completionRetention: Int64 = 15
-    public static let activeRetention: Int64 = 15 * 60
 
     public var sessions: [AgentSessionKey: AgentSessionRecord]
 
@@ -77,6 +80,10 @@ public struct AgentState: Codable, Equatable, Sendable {
             command = .error
         } else if records.contains(where: { $0.status == .waiting }) {
             command = .waiting
+        } else if records.contains(where: { $0.status == .toolRunning }) {
+            command = .toolRunning
+        } else if records.contains(where: { $0.status == .outputting }) {
+            command = .outputting
         } else if records.contains(where: { $0.status == .working }) {
             command = .working
         } else if records.contains(where: { $0.status == .complete }) {
@@ -101,8 +108,8 @@ public struct AgentState: Codable, Equatable, Sendable {
             switch record.status {
             case .idle: return false
             case .complete, .error: return age <= Self.completionRetention
-            case .working, .waiting:
-                return age <= Self.activeRetention
+            case .working, .toolRunning, .outputting, .waiting:
+                return true
             }
         }
     }
@@ -113,8 +120,8 @@ public struct AgentState: Codable, Equatable, Sendable {
             return nil
         case .complete, .error:
             return record.updatedAt + Self.completionRetention + 1
-        case .working, .waiting:
-            return record.updatedAt + Self.activeRetention + 1
+        case .working, .toolRunning, .outputting, .waiting:
+            return nil
         }
     }
 }

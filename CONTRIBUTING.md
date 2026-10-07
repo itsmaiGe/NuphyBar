@@ -4,16 +4,19 @@ Thanks for helping improve NuphyBar.
 
 ## Before changing code
 
-1. Open an issue describing the exact NuPhy model, layout, connection mode, and firmware track (QMK or NuPhy IO).
+1. Open an issue describing the exact keyboard model, layout, connection mode, and firmware track (for NuPhy, QMK or NuPhy IO).
 2. Never assume that two Air/Halo sizes share LED indices or a flashable binary.
-3. Keep Mac-to-keyboard traffic state-based. Animation belongs in firmware; do not stream frames over BLE or accelerate the stock RF polling loop.
+3. Keep Mac-to-keyboard traffic state-based. Animation belongs in firmware; do not stream frames over BLE or accelerate the stock RF polling loop. Scope any required state renewal to its device protocol: Halo USB renews active states every five minutes, and stock AULA real-time colors require a one-second refresh.
 
 ## App checks
 
 ```bash
 swift test
 swift build -c release
-bash -n script/*.sh firmware/air60-v2/*.sh
+for script in script/*.sh firmware/air60-v2/*.sh firmware/halo75-v2-ansi/*.sh; do
+  bash -n "$script" || exit
+done
+./firmware/halo75-v2-ansi/test.sh
 ```
 
 ## Air60 V2 firmware checks

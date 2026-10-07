@@ -1,29 +1,28 @@
 @preconcurrency import AppKit
 
 @MainActor
-final class SystemWakeMonitor {
+final class SystemLifecycleMonitor {
     private let center: NotificationCenter
-    private var observer: NSObjectProtocol?
+    private var observers: [NSObjectProtocol] = []
 
     init(
         center: NotificationCenter = NSWorkspace.shared.notificationCenter,
-        notification: Notification.Name = NSWorkspace.didWakeNotification,
-        handler: @escaping @MainActor @Sendable () -> Void
+        resumeHandler: @escaping @MainActor @Sendable () -> Void
     ) {
         self.center = center
-        observer = center.addObserver(
-            forName: notification,
+        observers.append(center.addObserver(
+            forName: NSWorkspace.didWakeNotification,
             object: nil,
             queue: .main
         ) { _ in
             MainActor.assumeIsolated {
-                handler()
+                resumeHandler()
             }
-        }
+        })
     }
 
     deinit {
-        if let observer {
+        for observer in observers {
             center.removeObserver(observer)
         }
     }

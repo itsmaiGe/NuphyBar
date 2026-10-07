@@ -1,4 +1,5 @@
 import AppKit
+import AgentLightHID
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -14,7 +15,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: .nuphyBarLanguageDidChange,
             object: nil
         )
-        statusItemController = StatusItemController(model: model)
+        let statusItemController = StatusItemController(model: model)
+        self.statusItemController = statusItemController
+
+        if NuPhyHIDTransport.accessState != .granted {
+            statusItemController.presentPreferencesWindow()
+        }
+    }
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        statusItemController?.presentPreferencesWindow()
+        return true
     }
 
     @objc private func languageDidChange(_ notification: Notification) {

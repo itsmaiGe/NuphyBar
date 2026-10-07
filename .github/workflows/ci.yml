@@ -10,9 +10,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Check shell scripts
-        run: bash -n script/*.sh firmware/air60-v2/*.sh
+        run: |
+          for script in script/*.sh firmware/air60-v2/*.sh firmware/halo75-v2-ansi/*.sh; do
+            bash -n "$script"
+          done
       - name: Test firmware model and patch encoder
-        run: ./firmware/air60-v2/test.sh
+        run: |
+          ./firmware/air60-v2/test.sh
+          ./firmware/halo75-v2-ansi/test.sh
       - name: Test macOS app
         run: swift test
       - name: Build macOS app

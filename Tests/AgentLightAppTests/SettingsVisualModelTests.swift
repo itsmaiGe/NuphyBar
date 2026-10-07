@@ -46,6 +46,46 @@ func workingLightStripUsesContinuousSamples() {
     #expect(largestAdjacentJump < 0.18)
 }
 
+@Test("Halo75 previews keep the agreed rich state colors")
+func halo75RichStatePreviewColors() throws {
+    let tool = try #require(LightStripModel.samples(effect: .toolRunning, time: 0, count: 1).first)
+    #expect(tool.hue == 0)
+    #expect(tool.brightness == 1)
+
+    let output = try #require(LightStripModel.samples(effect: .outputting, time: 0.5, count: 1).first)
+    #expect(output.hue > 0.09 && output.hue < 0.12)
+
+    let permission = try #require(LightStripModel.samples(effect: .permissionRequired, time: 0.5, count: 1).first)
+    #expect(permission.hue > 0.58 && permission.hue < 0.63)
+
+    let complete = try #require(LightStripModel.samples(effect: .solidGreen, time: 0, count: 1).first)
+    #expect(complete.hue > 0.35 && complete.hue < 0.42)
+    #expect(complete.brightness == 1)
+}
+
+@Test("Air60 previews preserve amber double pulses and green breathing")
+func air60PreviewEffectsRemainDistinct() throws {
+    let waiting = [0.01, 0.12, 0.20, 0.40].map {
+        LightStripModel.samples(effect: .waiting, time: $0, count: 1)[0]
+    }
+    #expect(waiting.allSatisfy { $0.hue > 0.08 && $0.hue < 0.12 })
+    #expect(waiting.map { $0.brightness > 0 } == [true, false, true, false])
+    let complete = [0.0, 0.5, 1.5].map {
+        LightStripModel.samples(effect: .complete, time: $0, count: 1)[0]
+    }
+    #expect(Set(complete.map(\.brightness)).count == 3)
+    #expect(complete.allSatisfy { $0.hue > 0.35 && $0.hue < 0.42 })
+}
+
+@Test("keyboard settings distinguish every supported keyboard profile")
+func keyboardSettingsDistinguishProfiles() {
+    #expect(KeyboardLightingProfile(productName: "NuPhy Halo75 V2 NuphyBar") == .halo75USB)
+    #expect(KeyboardLightingProfile(productName: "NuPhy Halo75 V2-1") == .halo75Bluetooth)
+    #expect(KeyboardLightingProfile(productName: "NuPhy Halo75 V2-3") == .halo75Bluetooth)
+    #expect(KeyboardLightingProfile(productName: "NuPhy Air60 V2-1") == .air60Bluetooth)
+    #expect(KeyboardLightingProfile(productName: "AULA-F99Pro 5.0 ") == .aulaF99ProBluetooth)
+}
+
 @Test("settings navigation matches the compact three-tab reference")
 func settingsNavigationUsesThreeCompactTabs() {
     #expect(SettingsSection.allCases.map { $0.title(in: .simplifiedChinese) } == ["Agent", "键盘", "关于"])

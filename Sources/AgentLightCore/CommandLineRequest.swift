@@ -11,6 +11,8 @@ public enum CommandLineRequest: Equatable, Sendable {
         case "describe" where arguments.count == 1: return .describe
         case "idle" where arguments.count == 1: return .send(.idle)
         case "working" where arguments.count == 1: return .send(.working)
+        case "tool-running" where arguments.count == 1: return .send(.toolRunning)
+        case "outputting" where arguments.count == 1: return .send(.outputting)
         case "waiting" where arguments.count == 1: return .send(.waiting)
         case "complete" where arguments.count == 1: return .send(.complete)
         case "error" where arguments.count == 1: return .send(.error)
@@ -36,6 +38,8 @@ public enum CommandLineRequest: Equatable, Sendable {
         switch value {
         case "idle": return .idle
         case "working": return .working
+        case "tool-running": return .toolRunning
+        case "outputting": return .outputting
         case "waiting": return .waiting
         case "complete": return .complete
         case "error": return .error
@@ -53,7 +57,7 @@ public enum CommandLineError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .missingCommand, .invalidCommand:
-            return "usage: agent-light describe | idle | working | waiting | complete | error | hook PROVIDER EVENT | event PROVIDER STATUS SESSION"
+            return "usage: agent-light describe | idle | working | tool-running | outputting | waiting | complete | error | hook PROVIDER EVENT | event PROVIDER STATUS SESSION"
         case .invalidProvider:
             return "provider must be codex, claude-code, opencode, grok-build, hermes, openclaw, or antigravity"
         }

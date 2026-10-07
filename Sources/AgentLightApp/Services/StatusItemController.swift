@@ -64,7 +64,7 @@ final class StatusItemController: NSObject {
         }
     }
 
-    private func presentPreferencesWindow() {
+    func presentPreferencesWindow() {
         model.refreshConnection()
         model.refreshIntegrations()
 
