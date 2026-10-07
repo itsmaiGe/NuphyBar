@@ -74,8 +74,10 @@ public final class RecoveryDiagnostics: @unchecked Sendable {
     private func withFileLock<T>(_ operation: () throws -> T) throws -> T {
         guard let url else { return try operation() }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        // An integration installer may spawn a child while this lock is held.
+        // Do not let that child retain the journal lock after this call returns.
         let descriptor = Darwin.open(url.appendingPathExtension("lock").path,
-            O_CREAT | O_RDWR | O_EXLOCK | O_NONBLOCK, S_IRUSR | S_IWUSR)
+            O_CREAT | O_RDWR | O_EXLOCK | O_NONBLOCK | O_CLOEXEC, S_IRUSR | S_IWUSR)
         guard descriptor >= 0 else { throw AgentStateFileError.lockOpenFailed }
         defer { Darwin.close(descriptor) }
         return try operation()

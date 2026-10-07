@@ -146,13 +146,13 @@ private struct LightStatusList: View {
                     row(.thinking, title: language.text(.thinking), detail: language.text(.redBreath), time: time)
                     row(.toolRunning, title: language.text(.toolRunning), detail: language.text(.solidRed), time: time)
                     row(.outputting, title: language.text(.outputting), detail: language.text(.yellowBreath), time: time)
-                    row(.waiting, title: language.text(.permissionRequired), detail: language.text(.blueFastBreath), time: time)
-                    row(.complete, title: language.text(.taskComplete), detail: language.text(.solidGreen), time: time)
+                    row(.permissionRequired, title: language.text(.permissionRequired), detail: language.text(.blueFastBreath), time: time)
+                    row(.solidGreen, title: language.text(.taskComplete), detail: language.text(.solidGreen), time: time)
                     row(.error, title: language.text(.error), detail: language.text(.redFlash), time: time)
                 case .halo75Bluetooth:
                     row(.thinking, title: language.text(.working), detail: language.text(.redBreath), time: time)
-                    row(.waiting, title: language.text(.waiting), detail: language.text(.blueFastBreath), time: time)
-                    row(.complete, title: language.text(.taskComplete), detail: language.text(.solidGreen), time: time)
+                    row(.permissionRequired, title: language.text(.waiting), detail: language.text(.blueFastBreath), time: time)
+                    row(.solidGreen, title: language.text(.taskComplete), detail: language.text(.solidGreen), time: time)
                 case .air60Bluetooth:
                     row(.working, title: language.text(.working), detail: language.text(.blueFlow), time: time)
                     row(.waiting, title: language.text(.waiting), detail: language.text(.amberFlash), time: time)
@@ -162,14 +162,10 @@ private struct LightStatusList: View {
                     row(.toolRunning, title: language.text(.toolRunning), detail: language.text(.fullKeyboardRed), time: time)
                     row(.solidYellow, title: language.text(.outputting), detail: language.text(.fullKeyboardYellow), time: time)
                     row(.solidBlue, title: language.text(.permissionRequired), detail: language.text(.fullKeyboardBlue), time: time)
-                    row(.complete, title: language.text(.taskComplete), detail: language.text(.fullKeyboardGreen), time: time)
+                    row(.solidGreen, title: language.text(.taskComplete), detail: language.text(.fullKeyboardGreen), time: time)
                     row(.toolRunning, title: language.text(.error), detail: language.text(.fullKeyboardRed), time: time)
                 }
-                if profile == .aulaF99ProBluetooth {
-                    row(.idle, title: language.text(.idle), detail: language.text(.factoryEffect), time: time)
-                } else {
-                    row(.idle, title: language.text(.idle), detail: language.text(.factoryEffect), time: time)
-                }
+                row(.idle, title: language.text(.idle), detail: language.text(.factoryEffect), time: time)
             }
         }
     }

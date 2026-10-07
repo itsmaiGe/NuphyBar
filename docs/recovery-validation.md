@@ -42,7 +42,7 @@ On 2026-09-02 and 2026-09-03, the installed 0.5.12 build 28 candidate was exerci
 - Task records still use the existing `state-v2.json` schema. Turn identity is captured for diagnostics, not yet used as an ordering or cancellation authority. Persistent revision migration, stale-turn fencing, and reliable interruption reconciliation remain pending.
 - Obtain local event samples for manual stop, approval cancellation, normal app exit, abnormal exit, and Stop-triggered continuation before changing task termination behavior. `SessionEnd` is a session event, not a universal per-turn cancellation event. No transcript parser or process-liveness inference was added.
 - Formal endurance runs of twenty physical reconnect cycles and ten controlled system sleep and wake cycles have not been performed. Automated coverage contains twenty simulated rebuild cycles.
-- USB firmware still has its separate fifteen-minute active-state timeout. Firmware was not changed or flashed in this candidate.
+- This historical candidate did not renew USB states before the firmware's separate fifteen-minute timeout. Current source fixes this on the host by renewing active Halo USB states every five minutes; Bluetooth remains change-driven, and firmware is unchanged.
 
 ## Deployment status
 

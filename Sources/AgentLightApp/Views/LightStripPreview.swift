@@ -7,6 +7,8 @@ enum LightStripEffect {
     case outputting
     case waiting
     case complete
+    case permissionRequired
+    case solidGreen
     case error
     case idle
     case solidYellow
@@ -92,6 +94,15 @@ enum LightStripModel {
                 opacity: 1
             )
         case .waiting:
+            let step = Int(positiveRemainder(time, modulus: 1.28) / 0.032)
+            let pulseStep = step < 3 ? step : (step >= 6 && step < 9 ? step - 6 : nil)
+            return LightStripSample(hue: 0.095, saturation: 0.9,
+                brightness: pulseStep.map { Double(255 - $0 * 96) / 255 } ?? 0, opacity: 1)
+        case .complete:
+            let breath = 0.5 + 0.5 * sin(time * 3.1)
+            return LightStripSample(hue: 0.38, saturation: 0.82,
+                brightness: 0.58 + 0.42 * breath, opacity: 1)
+        case .permissionRequired:
             let pulse = 0.5 + 0.5 * sin(time * 6.2)
             return LightStripSample(
                 hue: 0.604,
@@ -99,7 +110,7 @@ enum LightStripModel {
                 brightness: 0.46 + 0.54 * pulse,
                 opacity: 1
             )
-        case .complete:
+        case .solidGreen:
             return LightStripSample(
                 hue: 0.38,
                 saturation: 0.82,

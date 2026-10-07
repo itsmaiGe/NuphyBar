@@ -26,9 +26,10 @@ final class AppModel {
     private let stateFile: AgentStateFile
     private let checkAccess: @Sendable () -> NuPhyHIDAccessState
     private let now: @Sendable () -> Int64
+    private let uptime: @Sendable () -> TimeInterval
     private let diagnostics: RecoveryDiagnostics
     private let integrations: IntegrationController
-    @ObservationIgnored private var deliveryState = AgentCommandDeliveryState()
+    @ObservationIgnored private(set) var deliveryState = AgentCommandDeliveryState()
     @ObservationIgnored private var agentStateObservation: AgentStateChangeObservation?
     @ObservationIgnored private var lastAgentState: AgentState?
     @ObservationIgnored private var stateRevision: UInt64 = 0
@@ -50,12 +51,14 @@ final class AppModel {
          stateFile: AgentStateFile = AgentStateFile(),
          checkAccess: @escaping @Sendable () -> NuPhyHIDAccessState = { NuPhyHIDTransport.accessState },
          now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970) },
+         uptime: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
          diagnostics: RecoveryDiagnostics = .shared,
          startMonitoring: Bool = true) {
         self.keyboard = keyboard
         self.stateFile = stateFile
         self.checkAccess = checkAccess
         self.now = now
+        self.uptime = uptime
         self.diagnostics = diagnostics
         let helperPath = Bundle.main.bundleURL
             .appending(path: "Contents/Helpers/agent-light")
@@ -298,19 +301,24 @@ final class AppModel {
             return
         }
         deliveryState.update(command: presentation.command, revision: stateRevision)
+        // USB firmware expires active states after 15 minutes. Renew its state
+        // every five minutes; Bluetooth remains change-driven.
+        let isHaloUSB = keyboardModel?.trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare("NuPhy Halo75 V2 NuphyBar") == .orderedSame
         guard hidAccessState == .granted, isConnected, isDeliveryReady,
-              let attempt = deliveryState.begin(force: force && presentation.command != .idle) else { return }
+              let attempt = deliveryState.begin(force: force && presentation.command != .idle,
+                refreshInterval: isHaloUSB ? 5 * 60 : nil, now: uptime()) else { return }
         diagnostics.record("delivery.requested", fields: ["revision": String(stateRevision),
             "command": String(describing: attempt.target.command),
             "connection": attempt.connection.selectionID.uuidString])
         Task {
             do {
                 try await keyboard.send(attempt.target.command, connection: attempt.connection)
-                if deliveryState.finish(attempt, succeeded: true) {
+                if deliveryState.finish(attempt, succeeded: true, now: uptime()) {
                     keyboardError = nil
                 }
             } catch {
-                if deliveryState.finish(attempt, succeeded: false) {
+                if deliveryState.finish(attempt, succeeded: false, now: uptime()) {
                     keyboardError = error.localizedDescription
                 }
                 hidLogger.error("Keyboard state send failed: \(String(describing: error), privacy: .public)")

@@ -40,6 +40,9 @@ func codexInstallPreservesConfiguration() throws {
     let stop = try #require(hooks["Stop"] as? [[String: Any]])
     #expect(stop.count == 2)
     #expect(hooks["UserPromptSubmit"] != nil)
+    let toolGroups = try #require(hooks["PreToolUse"] as? [[String: Any]])
+    let toolHandlers = try #require(toolGroups.first?["hooks"] as? [[String: Any]])
+    #expect((toolHandlers.first?["command"] as? String)?.hasSuffix("hook codex PreToolUse") == true)
     #expect(hooks["PermissionRequest"] != nil)
     #expect(hooks["PostToolUse"] != nil)
     #expect(hooks["SessionEnd"] != nil)
@@ -134,6 +137,14 @@ func codexIntegrationRecognizesTrustedHooks() throws {
     """
     try Data(config.utf8).write(to: home.appending(path: ".codex/config.toml"))
 
+    #expect(!installer.isReady(.codex))
+    let withToolTrust = config + """
+
+
+    [hooks.state."\(hooksPath):pre_tool_use:0:0"]
+    trusted_hash = "sha256:six"
+    """
+    try Data(withToolTrust.utf8).write(to: home.appending(path: ".codex/config.toml"))
     #expect(installer.isReady(.codex))
 }
 
