@@ -69,7 +69,8 @@ public final class ClaudeTurnHistory: @unchecked Sendable {
                 if scans[sessionID] == nil, scans.count >= 128 { scans.removeAll() }
                 scans[sessionID] = scan
             }
-            guard scan.finished, let proof = scan.parser.ending, proof.endedAt >= notBefore else { return nil }
+            guard scan.finished, scan.parser.pendingDequeue == nil,
+                  let proof = scan.parser.ending, proof.endedAt >= notBefore else { return nil }
             return proof
         }
     }
@@ -81,7 +82,7 @@ public final class ClaudeTurnHistory: @unchecked Sendable {
         for end in page.data.indices where end >= start && page.data[end] == 10 {
             if let event = try? decoder.decode(Entry.self, from: page.data.subdata(in: start..<end)),
                event.type == "user", event.isSidechain != true, event.sessionId == sessionID,
-               event.uuid != nil, let message = event.message,
+               !event.isTranscriptNotification, event.uuid != nil, let message = event.message,
                message.toolResults.isEmpty {
                 root = start
             }
@@ -147,6 +148,7 @@ public final class ClaudeTurnHistory: @unchecked Sendable {
         var tools: Set<String> = []
         var latestActivity: Double = 0
         var ending: ClaudeTurnEvidence?
+        var pendingDequeue: Double?
 
         mutating func consume(_ data: Data, sessionID: String) throws {
             let decoder = JSONDecoder()
@@ -154,6 +156,16 @@ public final class ClaudeTurnHistory: @unchecked Sendable {
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             for line in data.split(separator: 10) {
                 let event = try decoder.decode(Entry.self, from: Data(line))
+                if let dequeue = pendingDequeue {
+                    pendingDequeue = nil
+                    if event.isTranscriptNotification, event.isSidechain == false, event.sessionId == sessionID,
+                       let parent = event.parentUuid, chain.contains(parent), let uuid = event.uuid {
+                        chain.insert(uuid)
+                        continue
+                    }
+                    ending = nil
+                    latestActivity = max(latestActivity, dequeue)
+                }
                 guard event.isSidechain != true else { continue }
                 switch event.type {
                 case "assistant", "user", "attachment", "api-request", "api-request-blob", "api-request-shape", "queue-operation":
@@ -178,10 +190,18 @@ public final class ClaudeTurnHistory: @unchecked Sendable {
                     ending = nil
                     continue
                 }
-                ending = nil
-                if event.type == "api-request-blob" { continue }
+                if event.type == "api-request-blob" {
+                    ending = nil
+                    continue
+                }
                 guard let timestamp = event.timestamp, let date = formatter.date(from: timestamp) else { throw InvalidRecord.metadata }
                 let time = date.timeIntervalSince1970
+                if ending != nil, event.type == "queue-operation", event.operation == "dequeue" {
+                    // The next record distinguishes a transcript notification from a queued request.
+                    pendingDequeue = time
+                    continue
+                }
+                ending = nil
                 if event.type == "attachment" {
                     if let parent = event.parentUuid, let uuid = event.uuid, chain.contains(parent) {
                         chain.insert(uuid)
@@ -250,8 +270,16 @@ public final class ClaudeTurnHistory: @unchecked Sendable {
         let isSidechain: Bool?
         let isApiErrorMessage: Bool?
         let message: Message?
+        let operation: String?
+        let isTranscriptNotification: Bool
+
+        private struct Origin: Decodable {
+            let kind: String?
+        }
+
         enum CodingKeys: String, CodingKey {
             case type, timestamp, sessionId, uuid, parentUuid, subtype, isSidechain, isApiErrorMessage, message
+            case operation, queueTranscriptOnly, origin, promptSource
         }
         init(from decoder: any Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -265,6 +293,12 @@ public final class ClaudeTurnHistory: @unchecked Sendable {
             isApiErrorMessage = try values.decodeIfPresent(Bool.self, forKey: .isApiErrorMessage)
             message = ["assistant", "user"].contains(type)
                 ? try values.decodeIfPresent(Message.self, forKey: .message) : nil
+            operation = type == "queue-operation" ? try values.decodeIfPresent(String.self, forKey: .operation) : nil
+            isTranscriptNotification = type == "user"
+                && message?.toolResults.isEmpty == true
+                && (try? values.decode(Bool.self, forKey: .queueTranscriptOnly)) == true
+                && (try? values.decode(String.self, forKey: .promptSource)) == "system"
+                && (try? values.decode(Origin.self, forKey: .origin))?.kind == "task-notification"
         }
     }
 

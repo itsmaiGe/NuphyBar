@@ -21,7 +21,7 @@ NuphyBar 是一个轻量的原生 macOS 菜单栏应用。它汇总 Codex、Clau
 | 版本 | 包含的功能 |
 |---|---|
 | [已发布的 v0.5.9](https://github.com/itsmaiGe/NuphyBar/releases/tag/v0.5.9) | Air60 V2 ANSI 蓝牙支持；提供 macOS 安装包和 `stable-v7` 固件 |
-| 当前源码，应用版本 0.5.20 | 新增 Halo75 V2 ANSI USB／蓝牙、AULA F99 Pro 蓝牙、进程退出及任务结束漏报清理、Codex Interrupt 处理和恢复诊断；需要自行构建 |
+| 当前源码，应用版本 0.5.21 | 新增 Halo75 V2 ANSI USB／蓝牙、AULA F99 Pro 蓝牙、进程退出及任务结束漏报清理、Codex Interrupt 处理和恢复诊断；需要自行构建 |
 
 **v0.5.9 下载包不包含 Halo75 和 AULA 的新增功能。** 新机型的贡献者实测记录与待完成验证见下文。源码合并不代表已经发布新版安装包。
 
@@ -142,7 +142,7 @@ swift build -c release
 ./script/package_release.sh
 ```
 
-Swift 包包含 `AgentLightCore` 库、`agent-light` 辅助程序和 `NuphyBar` 应用。当前打包输出为 `dist/NuphyBar-0.5.20-macOS-arm64.dmg`。只构建应用可运行 `./script/build_app.sh`；需要安装并启动时使用 `./script/build_and_run.sh`。
+Swift 包包含 `AgentLightCore` 库、`agent-light` 辅助程序和 `NuphyBar` 应用。当前打包输出为 `dist/NuphyBar-0.5.21-macOS-arm64.dmg`。只构建应用可运行 `./script/build_app.sh`；需要安装并启动时使用 `./script/build_and_run.sh`。
 
 如果 Command Line Tools 默认 SDK 缺少 SwiftUI 宏插件，可用 `swift test --sdk /path/to/MacOSX.sdk` 指定已安装且兼容的 SDK，并在 release 构建时使用相同 SDK。这属于工具链配置问题，无需为此删除应用中的 SwiftUI 状态代码。
 

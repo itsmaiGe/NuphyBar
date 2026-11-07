@@ -45,6 +45,33 @@ private func claudeEnding(error: Bool = true) throws -> String {
             reason: error ? "stop_sequence" : "end_turn", error: error)
 }
 
+@Test("Claude transcript-only queue notifications preserve a proven ending")
+func claudeTranscriptOnlyQueueNotification() throws {
+    let fixture = try ClaudeFixture()
+    defer { fixture.remove() }
+    let completed = try claudeEnding(error: false)
+        + claudeLine("system", time: 1_001, id: "summary", parent: "end", extra: ["subtype": "stop_hook_summary"])
+    let dequeue = try claudeLine("queue-operation", time: 1_002, extra: ["operation": "dequeue"])
+    let metadata: [String: Any] = [
+        "origin": ["kind": "task-notification"], "promptSource": "system",
+        "queueTranscriptOnly": true, "isSidechain": false,
+    ]
+    let notification = try claudeLine("user", time: 1_003, id: "notification", parent: "summary", extra: metadata)
+    try fixture.write(completed + dequeue + notification)
+    #expect(fixture.proof()?.endedAt == 1_000)
+    #expect(fixture.proof(1_001) == nil)
+    try fixture.write(completed + dequeue)
+    #expect(fixture.proof() == nil)
+    for extra in [[:], metadata.merging(["queueTranscriptOnly": false], uniquingKeysWith: { _, new in new })] {
+        try fixture.write(completed + dequeue + claudeLine("user", time: 1_003, parent: "summary", extra: extra))
+        #expect(fixture.proof() == nil)
+    }
+    try fixture.write(completed + dequeue + claudeLine("user", time: 1_003, parent: "unrelated", extra: metadata))
+    #expect(fixture.proof() == nil)
+    try fixture.write(completed + dequeue + notification + claudeLine("api-request", time: 1_004))
+    #expect(fixture.proof() == nil)
+}
+
 private func claudeLongTurn() throws -> String {
     var body = try claudeLine("user")
     var parent = "prompt"
