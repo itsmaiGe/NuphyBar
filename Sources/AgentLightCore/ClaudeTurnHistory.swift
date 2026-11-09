@@ -172,6 +172,10 @@ public final class ClaudeTurnHistory: @unchecked Sendable {
                     guard event.sessionId == sessionID else { throw InvalidRecord.identity }
                 default:
                     if ["last-prompt", "ai-title", "atis-latch", "file-history-snapshot"].contains(event.type) { continue }
+                    if event.type == "mode" || event.type == "session-owner" {
+                        guard event.sessionId == sessionID else { throw InvalidRecord.identity }
+                        continue
+                    }
                     if event.type == "system", ["turn_duration", "stop_hook_summary", "hook_progress", "informational", "api_error"]
                         .contains(event.subtype ?? "") {
                         guard event.sessionId == sessionID else { throw InvalidRecord.identity }

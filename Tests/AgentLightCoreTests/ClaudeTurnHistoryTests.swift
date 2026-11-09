@@ -72,6 +72,23 @@ func claudeTranscriptOnlyQueueNotification() throws {
     #expect(fixture.proof() == nil)
 }
 
+@Test("Claude session metadata between a final response and Stop preserves completion")
+func claudeSessionMetadataAfterEnding() throws {
+    let fixture = try ClaudeFixture()
+    defer { fixture.remove() }
+    let completed = try claudeEnding(error: false)
+    let mode = try claudeLine("mode", extra: ["mode": "normal"])
+    let owner = try claudeLine("session-owner", extra: ["accountUuid": "fixture-account"])
+    let summary = try claudeLine("system", time: 1_003, parent: "end", extra: ["subtype": "stop_hook_summary"])
+    try fixture.write(completed + mode + owner + summary)
+    #expect(fixture.proof()?.endedAt == 1_000)
+    #expect(fixture.proof(1_001) == nil)
+    try fixture.write(completed + mode + owner + summary + claudeLine("api-request", time: 1_004))
+    #expect(fixture.proof() == nil)
+    try fixture.write(completed + claudeLine("session-owner", session: "other-session") + summary)
+    #expect(fixture.proof() == nil)
+}
+
 private func claudeLongTurn() throws -> String {
     var body = try claudeLine("user")
     var parent = "prompt"

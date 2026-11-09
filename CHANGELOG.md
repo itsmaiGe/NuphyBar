@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve verified Claude completion across same-session mode and account ownership metadata.
+
 - Preserve verified Claude endings when a dequeue only writes a linked background task notification to the transcript.
 
 - Recover Claude task anchors across bounded log pages instead of requiring a whole turn in the final two MiB. Validate one unchanged file version through completion, discard progress after file changes, rebuild after restart, and follow nonterminal API-retry metadata without treating it as completion.
