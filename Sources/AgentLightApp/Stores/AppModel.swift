@@ -15,6 +15,7 @@ final class AppModel {
     var isConnected = false
     var keyboardError: String?
     var agentStateError: String?
+    var agentStateNotice: String?
     var isDeliveryReady = false
     var integrationError: String?
     var diagnosticsError: String?
@@ -277,6 +278,17 @@ final class AppModel {
         do {
             state = try stateFile.load()
             agentStateError = nil
+            let unverified = state.sessions.filter { key, record in
+                guard key.provider == .codex,
+                      record.owner == nil || record.owner?.status() == .unknown else { return false }
+                switch record.status {
+                case .working, .toolRunning, .outputting, .waiting: return true
+                default: return false
+                }
+            }.count
+            agentStateNotice = unverified > 0
+                ? "有 \(unverified) 条任务的运行身份暂时无法核实；正在运行的任务收到下一次事件后会补齐"
+                : nil
         } catch {
             if agentStateError != error.localizedDescription {
                 agentStateLogger.error("Cannot read Agent state: \(String(describing: error), privacy: .public)")

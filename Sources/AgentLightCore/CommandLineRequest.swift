@@ -3,6 +3,7 @@ public enum CommandLineRequest: Equatable, Sendable {
     case send(AgentLightCommand)
     case hook(AgentProvider, String)
     case event(AgentEvent)
+    case installIntegration(AgentProvider)
 
     public static func parse(_ arguments: [String]) throws -> CommandLineRequest {
         guard let command = arguments.first else { throw CommandLineError.missingCommand }
@@ -29,6 +30,9 @@ public enum CommandLineRequest: Equatable, Sendable {
             }
             let status = try parseStatus(arguments[2])
             return .event(AgentEvent(provider: provider, sessionID: arguments[3], status: status))
+        case "install-integration" where arguments.count == 2:
+            guard let provider = AgentProvider(rawValue: arguments[1]) else { throw CommandLineError.invalidProvider }
+            return .installIntegration(provider)
         default:
             throw CommandLineError.invalidCommand
         }
@@ -57,7 +61,7 @@ public enum CommandLineError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .missingCommand, .invalidCommand:
-            return "usage: agent-light describe | idle | working | tool-running | outputting | waiting | complete | error | hook PROVIDER EVENT | event PROVIDER STATUS SESSION"
+            return "usage: agent-light describe | idle | working | tool-running | outputting | waiting | complete | error | hook PROVIDER EVENT | event PROVIDER STATUS SESSION | install-integration PROVIDER"
         case .invalidProvider:
             return "provider must be codex, claude-code, opencode, grok-build, hermes, openclaw, or antigravity"
         }

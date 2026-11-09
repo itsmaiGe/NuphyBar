@@ -125,6 +125,51 @@ func aulaOldCompletion() async {
 }
 
 @MainActor
+@Test("AULA delayed green confirmation respects security and sleep pauses",
+      arguments: [AULAPauseReason.secureInput, .sleeping])
+func aulaDelayedConfirmationDuringPause(reason: AULAPauseReason) async {
+    let keyboard = AULAKeyboard(), environment = AULAEnvironment()
+    let controller = makeController(keyboard, environment)
+    controller.update(.idle)
+    await settle(controller)
+    await keyboard.configure(hold: true)
+    controller.update(.complete)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while await keyboard.held == nil, ContinuousClock.now < deadline { await Task.yield() }
+    #expect(await keyboard.held != nil)
+    environment.pause = reason
+    controller.update(.idle)
+    await keyboard.release()
+    await settle(controller)
+    #expect(await keyboard.commands == [.idle, .complete])
+    #expect(controller.notice == reason.message)
+    environment.pause = nil
+    controller.update(.idle)
+    await settle(controller)
+    #expect(await keyboard.commands == [.idle, .complete, .idle])
+    #expect(controller.notice == nil)
+}
+
+@MainActor
+@Test("AULA successful green writes cannot suppress restoration of an earlier target",
+      arguments: [AgentLightCommand.idle, .working])
+func aulaReturnsToEarlierTarget(restored: AgentLightCommand) async {
+    let keyboard = AULAKeyboard(), environment = AULAEnvironment()
+    let controller = makeController(keyboard, environment)
+    controller.update(restored)
+    await settle(controller)
+    await keyboard.configure(hold: true)
+    controller.update(.complete)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while await keyboard.held == nil, ContinuousClock.now < deadline { await Task.yield() }
+    #expect(await keyboard.held != nil)
+    controller.update(restored)
+    await keyboard.release()
+    await settle(controller)
+    #expect(await keyboard.commands == [restored, .complete, restored])
+}
+
+@MainActor
 @Test("AULA simulated eight-hour keepalive has no task expiry and stops on idle")
 func aulaEightHourKeepalive() async {
     let keyboard = AULAKeyboard(), environment = AULAEnvironment()

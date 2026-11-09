@@ -21,7 +21,7 @@ It does not read keystrokes, save prompts or responses, or send data to a server
 | Version | What it includes |
 |---|---|
 | [Published v0.5.9](https://github.com/itsmaiGe/NuphyBar/releases/tag/v0.5.9) | Air60 V2 ANSI over Bluetooth; downloadable macOS app and `stable-v7` firmware |
-| Current source, app version 0.5.13 | Adds Halo75 V2 ANSI USB/Bluetooth, AULA F99 Pro Bluetooth, richer states, and recovery diagnostics; build from source |
+| Current source, app version 0.5.22 | Adds Halo75 V2 ANSI USB/Bluetooth, AULA F99 Pro Bluetooth, task-owner and missed-ending cleanup, Codex Interrupt handling, and recovery diagnostics; build from source |
 
 The Halo75 and AULA additions are **not included in the v0.5.9 download**. Their contributor-reported hardware checks and remaining release checks are described below. Source availability is not a new binary release.
 
@@ -52,7 +52,7 @@ Requirements: **macOS 14 or later** and an **Apple Silicon Mac** for the supplie
 5. Open the menu-bar app's **Keyboard** tab and check the detected model and connection status.
 6. Enable your integration in the **Agent** tab. Review and trust newly installed Codex hooks when Codex prompts, then start a new task.
 
-After updating from an older app, disable and re-enable the Codex integration to install its current event definitions. Review changed hooks in Codex; NuphyBar does not grant hook trust for you.
+After updating from an older app, disable and re-enable existing Codex and Claude Code integrations to install current event definitions, including Claude's StopFailure. Review changed Codex hooks; NuphyBar does not grant hook trust for you.
 
 ## What the lights mean
 
@@ -68,7 +68,7 @@ After updating from an older app, disable and re-enable the Codex integration to
 
 These are the protocol's display states. An integration can report only events its agent exposes. In particular, ordinary Codex hooks do not supply streaming text deltas: **outputting is available through the protocol and CLI, but is not automatically inferred from tool completion**.
 
-With the installed Codex hooks, prompt submission and tool completion mean working; tool start means tool running; an approval request means waiting; `Stop` means complete; `SessionEnd` removes that session. See the [official hook reference](https://learn.chatgpt.com/docs/hooks).
+With the installed Codex hooks, prompt submission and tool completion mean working; tool start means tool running; an approval request means waiting; `Stop` means complete; `Interrupt` removes the interrupted turn without a completion flash; `SessionEnd` removes that session. Other active sessions still determine the light. See the [official hook reference](https://learn.chatgpt.com/docs/hooks).
 
 When sessions overlap, display priority is `error > waiting > tool running > outputting > working > complete > idle`. One completed session does not hide another session still working. Complete and error expire after about 15 seconds; the remaining sessions then determine the display.
 
@@ -118,7 +118,13 @@ The following remain open before treating the new ports as fully release-validat
 - Halo BLE2/BLE3 channel switching and a final full USB/VIA/idle regression.
 - Physical endurance evidence with recorded durations; simulated hours and reconnects do not replace hardware checks.
 
-Active task records deliberately have no time limit so long jobs keep their lights. If an agent is interrupted or crashes without a matching termination event, a stale active record can remain. Automatic interruption reconciliation is not implemented; `SessionEnd` is not a universal per-turn stop event. The state format also does not yet reject out-of-order events by turn ID.
+Active task records have no time limit. Codex and Claude Code hooks record the owning process and its start time. State reconciliation removes active records when that owner has exited, including after app restart or wake. An inaccessible or unidentified owner is not treated as exited. Codex turn IDs reject late events from closed turns and prevent an old ending event from clearing a newer turn. Interrupt handling removes only the interrupted turn while the Codex process can remain alive.
+
+If a Codex ending hook is missed, the app also checks the matching local rollout's lifecycle metadata during its existing five-second reconciliation. It reads a bounded two-MiB tail, verifies the session identity, and requires an explicit completion or interruption for the recorded turn with no later unfinished turn. No prompt, response, or tool content is extracted or saved. Missing files, incomplete writes, unknown lifecycle formats, and insufficient evidence preserve the active state. Codex does not guarantee a stable rollout format, so this fallback never interprets silence as completion. Codex legacy records without a turn identifier still depend on their ending events or confirmed owner exit.
+
+Claude Code also uses the five-second reconciliation. StopFailure handles API errors, not recoverable tool errors. Because Claude endings lack a reliable turn ID, ending hooks are checked against the matching root session's request chain and terminal metadata. Normal end_turn or a marked API-error response can end a record only after its latest activity, with no subsequent request, response fragment, queue event, or unresolved tool call. Subagent records and hooks do not end the parent. Old endings and notifications cannot revive a closed session or end a newer request. Recent completion/error indications retain their existing short duration; already-old endings restore idle without replaying the indication. Missing, partial, changed, or unrecognized logs preserve work. Reads share the same bounded snapshot implementation as Codex; no message text or API-error details are retained. Claude transcript paths and event timestamps are saved as local lifecycle metadata.
+
+Claude reads at most two MiB per check. It searches backwards for the latest root request, then verifies forward to the end, retaining only scan progress and lifecycle metadata in memory. Long turns can span any number of pages. Progress is discarded after file identity, size or modification time changes; restart rebuilds the evidence. An ending is accepted only after the entire scan reaches the end of that same unchanged file version. API-retry and informational system records extend the chain but cannot end work. Individual records larger than a page remain unsupported and preserve active state.
 
 Damaged state files are preserved and reported instead of silently overwritten. **Keyboard → Recovery Diagnostics → Export** saves a bounded local journal of connection transitions and delivery results. Session/turn identifiers are hashed in that journal; prompts, transcripts, and tool content are not recorded. A successful HID write confirms macOS accepted a report, not that a physical LED displayed it.
 
@@ -136,7 +142,7 @@ swift build -c release
 ./script/package_release.sh
 ```
 
-The package contains the `AgentLightCore` library, `agent-light` helper, and `NuphyBar` app. Packaging currently writes `dist/NuphyBar-0.5.13-macOS-arm64.dmg`. To build an app bundle only, run `./script/build_app.sh`; to install and launch locally, use `./script/build_and_run.sh`.
+The package contains the `AgentLightCore` library, `agent-light` helper, and `NuphyBar` app. Packaging currently writes `dist/NuphyBar-0.5.22-macOS-arm64.dmg`. To build an app bundle only, run `./script/build_app.sh`; to install and launch locally, use `./script/build_and_run.sh`.
 
 If a Command Line Tools installation defaults to an SDK whose SwiftUI macro plugin is missing, select a compatible installed SDK with `swift test --sdk /path/to/MacOSX.sdk` and use the same SDK for the release build. This is a toolchain setup issue; do not remove SwiftUI state from the app to work around it.
 

@@ -63,9 +63,9 @@ struct AgentCommandDeliveryState {
             acceptedAt = nil
             return true
         }
-        guard target == attempt.target else { return false }
+        // Cache the successful write, not the desired target that may have changed meanwhile.
         accepted = attempt
         acceptedAt = now
-        return true
+        return target == attempt.target
     }
 }

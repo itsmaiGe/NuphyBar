@@ -33,9 +33,12 @@ public enum HookEventMapper {
                   let sessionID = input.resolvedSessionID, !sessionID.isEmpty else {
                 throw HookEventError.invalidPayload
             }
+            guard provider != .claudeCode || !input.isSubagent else { return nil }
             guard input.resolvedNotificationType == "agent_needs_input"
                     || input.resolvedNotificationType == "elicitation_dialog" else { return nil }
-            return AgentEvent(provider: provider, sessionID: sessionID, status: .waiting)
+            return AgentEvent(provider: provider, sessionID: sessionID, status: .waiting,
+                lifecycle: provider == .claudeCode ? .activity : .unspecified,
+                transcriptPath: provider == .claudeCode ? input.transcriptPath : nil)
         }
 
         guard let status = status(provider: provider, eventName: eventName) else { return nil }
@@ -43,8 +46,18 @@ public enum HookEventMapper {
               let sessionID = input.resolvedSessionID, !sessionID.isEmpty else {
             throw HookEventError.invalidPayload
         }
+        guard provider != .claudeCode || !input.isSubagent else { return nil }
+        let lifecycle: AgentEventLifecycle
+        switch eventName {
+        case "UserPromptSubmit": lifecycle = .begin
+        case "Stop", "StopFailure", "Interrupt": lifecycle = .endTurn
+        case "SessionEnd": lifecycle = .endSession
+        default: lifecycle = .activity
+        }
         return AgentEvent(provider: provider, sessionID: sessionID, status: status,
-            turnID: provider == .codex ? input.turnID : nil)
+            turnID: provider == .codex ? input.turnID : nil,
+            lifecycle: provider == .codex || provider == .claudeCode ? lifecycle : .unspecified,
+            transcriptPath: provider == .claudeCode ? input.transcriptPath : nil)
     }
 
     public static func response(provider: AgentProvider, eventName: String) -> Data? {
@@ -71,12 +84,16 @@ public enum HookEventMapper {
             return .complete
         case (.codex, "SessionEnd"):
             return .idle
+        case (.codex, "Interrupt"):
+            return .idle
         case (.claudeCode, "UserPromptSubmit"), (.claudeCode, "PreToolUse"), (.claudeCode, "PostToolUse"):
             return .working
         case (.claudeCode, "PermissionRequest"):
             return .waiting
         case (.claudeCode, "Stop"):
             return .complete
+        case (.claudeCode, "StopFailure"):
+            return .error
         case (.claudeCode, "SessionEnd"):
             return .idle
         case (.grokBuild, "UserPromptSubmit"), (.grokBuild, "PreToolUse"), (.grokBuild, "PostToolUse"):
@@ -103,8 +120,11 @@ private struct HookInput: Decodable {
     let fullyIdle: Bool?
     let terminationReason: String?
     let error: String?
+    let transcriptPath: String?
+    let agentID: String?
 
     var resolvedSessionID: String? { sessionID ?? camelCaseSessionID ?? conversationID }
+    var isSubagent: Bool { agentID?.isEmpty == false }
     var resolvedNotificationType: String? { notificationType ?? camelCaseNotificationType }
     var hasError: Bool {
         terminationReason == "error" || !(error ?? "").isEmpty
@@ -120,5 +140,7 @@ private struct HookInput: Decodable {
         case fullyIdle
         case terminationReason
         case error
+        case transcriptPath = "transcript_path"
+        case agentID = "agent_id"
     }
 }

@@ -48,6 +48,24 @@ func claudeHookMapping() throws {
     #expect(try HookEventMapper.map(provider: .claudeCode, eventName: "SessionEnd", payload: payload)?.status == .idle)
 }
 
+@Test("Claude StopFailure reports a terminal API error without retaining error text")
+func claudeStopFailureMapping() throws {
+    let payload = Data(#"{"session_id":"claude-1","transcript_path":"/local/session.jsonl","error":"rate_limit","error_details":"private","last_assistant_message":"private"}"#.utf8)
+    let mapped = try HookEventMapper.map(provider: .claudeCode, eventName: "StopFailure", payload: payload)
+    let event = try #require(mapped)
+    #expect(event.status == .error)
+    #expect(event.lifecycle == .endTurn)
+    #expect(event.transcriptPath == "/local/session.jsonl")
+    #expect(HookEventMapper.response(provider: .claudeCode, eventName: "StopFailure") == nil)
+    #expect(try HookEventMapper.map(provider: .claudeCode, eventName: "PostToolUseFailure", payload: payload) == nil)
+    let child = Data(#"{"session_id":"parent","agent_id":"child","notification_type":"agent_needs_input"}"#.utf8)
+    for event in ["PostToolUse", "StopFailure", "Notification"] {
+        #expect(try HookEventMapper.map(provider: .claudeCode, eventName: event, payload: child) == nil)
+    }
+    let root = Data(#"{"session_id":"parent","agent_id":""}"#.utf8)
+    #expect(try HookEventMapper.map(provider: .claudeCode, eventName: "StopFailure", payload: root)?.status == .error)
+}
+
 @Test("Antigravity camel-case hooks preserve active work and completion")
 func antigravityHookMapping() throws {
     let invocation = Data(#"{"conversationId":"agy-1"}"#.utf8)

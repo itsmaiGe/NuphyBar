@@ -116,14 +116,15 @@ final class AULADeliveryController {
             do {
                 try await keyboard.send(target, connection: connection)
                 inFlight = false
-                if self.connection == connection, generation == attemptGeneration, environment() == nil {
+                // A changed target does not undo a successful write on the same connection.
+                if self.connection == connection, environment() == nil {
                     if accepted != target {
                         diagnostics.record("aula.delivery.accepted", fields: [
                             "command": String(describing: target), "connection": connection.selectionID.uuidString,
                         ])
                     }
                     accepted = target
-                    notice = nil
+                    if generation == attemptGeneration { notice = nil }
                 }
                 update(command)
             } catch {

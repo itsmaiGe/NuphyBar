@@ -11,9 +11,11 @@ func codexSessionEndTimeout() throws {
     let data = try Data(contentsOf: directory.appending(path: ".codex/hooks.json"))
     let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     let hooks = try #require(root["hooks"] as? [String: Any])
-    let groups = try #require(hooks["SessionEnd"] as? [[String: Any]])
-    let handlers = try #require(groups.first?["hooks"] as? [[String: Any]])
-    #expect(handlers.first?["timeout"] as? Int == 3)
+    for event in ["SessionEnd", "Interrupt"] {
+        let groups = try #require(hooks[event] as? [[String: Any]])
+        let handlers = try #require(groups.first?["hooks"] as? [[String: Any]])
+        #expect(handlers.first?["timeout"] as? Int == 3)
+    }
 }
 
 @Test("Codex install enables hooks and preserves notify plus existing hooks")
@@ -134,6 +136,9 @@ func codexIntegrationRecognizesTrustedHooks() throws {
 
     [hooks.state."\(hooksPath):session_end:0:0"]
     trusted_hash = "sha256:five"
+
+    [hooks.state."\(hooksPath):interrupt:0:0"]
+    trusted_hash = "sha256:six"
     """
     try Data(config.utf8).write(to: home.appending(path: ".codex/config.toml"))
 
@@ -142,10 +147,16 @@ func codexIntegrationRecognizesTrustedHooks() throws {
 
 
     [hooks.state."\(hooksPath):pre_tool_use:0:0"]
-    trusted_hash = "sha256:six"
+    trusted_hash = "sha256:seven"
     """
     try Data(withToolTrust.utf8).write(to: home.appending(path: ".codex/config.toml"))
     #expect(installer.isReady(.codex))
+    let withoutInterruptTrust = withToolTrust.replacingOccurrences(of: """
+    [hooks.state."\(hooksPath):interrupt:0:0"]
+    trusted_hash = "sha256:six"
+    """, with: "")
+    try Data(withoutInterruptTrust.utf8).write(to: home.appending(path: ".codex/config.toml"))
+    #expect(!installer.isReady(.codex))
 }
 
 @Test("Claude install and uninstall preserve unrelated settings and hooks")
@@ -167,6 +178,7 @@ func claudeInstallIsSurgical() throws {
     let installed = try json(at: claude.appending(path: "settings.json"))
     let installedHooks = try #require(installed["hooks"] as? [String: Any])
     #expect(installedHooks["PostToolUse"] != nil)
+    #expect(installedHooks["StopFailure"] != nil)
     let notificationGroups = try #require(installedHooks["Notification"] as? [[String: Any]])
     #expect(notificationGroups.contains { $0["matcher"] as? String == "agent_needs_input|elicitation_dialog" })
 
@@ -177,6 +189,7 @@ func claudeInstallIsSurgical() throws {
     let hooks = try #require(root["hooks"] as? [String: Any])
     let stop = try #require(hooks["Stop"] as? [[String: Any]])
     #expect(stop.count == 1)
+    #expect(hooks["StopFailure"] == nil)
 }
 
 @Test("OpenCode uses an owned plugin file without replacing a user plugin")

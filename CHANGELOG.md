@@ -2,10 +2,20 @@
 
 ## Unreleased
 
+- Preserve verified Claude completion across same-session mode and account ownership metadata.
+
+- Preserve verified Claude endings when a dequeue only writes a linked background task notification to the transcript.
+
+- Recover Claude task anchors across bounded log pages instead of requiring a whole turn in the final two MiB. Validate one unchanged file version through completion, discard progress after file changes, rebuild after restart, and follow nonterminal API-retry metadata without treating it as completion.
+- Verify Claude completion through its parent chain when attached response metadata has a later timestamp than the response. Preserve hook/request time fences, pending-tool checks and rejection of unrelated or subsequent activity.
+- Handle Claude Code StopFailure and verify ending hooks against bounded root-session evidence. Reconcile missed endings while the owner remains alive, preserve newer requests and long tasks, and ignore subagent endings. Share snapshot inspection with Codex without changing its cleanup rules.
+- Track successful NuPhy and AULA writes even when the desired state changes during confirmation, preventing stuck completion lights and duplicate sends after revision-only updates. Preserve old-connection rejection and AULA pause checks.
+- Reconcile missed Codex ending hooks against bounded local lifecycle evidence even while the shared agent process remains alive; keep active work when evidence is missing, malformed, or superseded by an unfinished turn.
 - Added experimental Halo75 V2 ANSI QMK support over USB Raw HID and Bluetooth, with a separate source overlay and model-specific recovery documentation.
 - Added experimental AULA F99 Pro Bluetooth lighting using temporary stock RGB commands, secure-input/sleep suspension, and bounded retries.
 - Added tool-running and outputting protocol states, Codex tool-start/session-end hooks, connection-aware delivery, and exportable local recovery diagnostics.
-- Preserved long-running task records, with documented limits for missing termination events and out-of-order turns.
+- Preserved long-running task records and automatically removed active Codex and Claude Code records only after their owning process exited.
+- Added trusted Codex Interrupt delivery and turn fencing so interrupted turns cannot be revived by late events or clear another active task.
 - Renewed active Halo USB states before the firmware timeout while keeping NuPhy Bluetooth delivery change-driven.
 - Kept Air60's amber double-pulse and green-breathing previews separate from Halo/AULA effects.
 - Included Halo installer tests in firmware checks and checked every shell script in CI.

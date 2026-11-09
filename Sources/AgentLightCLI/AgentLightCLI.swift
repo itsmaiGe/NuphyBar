@@ -15,15 +15,18 @@ struct AgentLightCLI {
             case .send(let command):
                 try NuPhyHIDTransport().send(command)
             case .hook(let provider, let eventName):
+                let owner = AgentProcessOwner.capture(provider: provider)
                 RecoveryDiagnostics.shared.record("hook.received", fields: [
                     "provider": provider.rawValue, "event": eventName,
                 ])
                 let payload = FileHandle.standardInput.readDataToEndOfFile()
-                if let event = try HookEventMapper.map(
+                if var event = try HookEventMapper.map(
                     provider: provider,
                     eventName: eventName,
                     payload: payload
                 ) {
+                    event.owner = owner
+                    event.occurredAt = AgentProcessOwner.invocationTime
                     try recordAgentEvent(event)
                 }
                 if let response = HookEventMapper.response(provider: provider, eventName: eventName) {
@@ -31,6 +34,9 @@ struct AgentLightCLI {
                 }
             case .event(let event):
                 try recordAgentEvent(event)
+            case .installIntegration(let provider):
+                try IntegrationInstaller(helperPath: URL(fileURLWithPath: CommandLine.arguments[0])
+                    .standardizedFileURL.path).install(provider)
             }
         } catch {
             RecoveryDiagnostics.shared.record("helper.failed", fields: ["error": String(describing: type(of: error))])

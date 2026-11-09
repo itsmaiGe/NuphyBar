@@ -26,6 +26,7 @@ func unsupportedLegacyCommands() {
 
 @Test("hook and explicit agent events identify their provider and session")
 func agentEvents() throws {
+    #expect(try CommandLineRequest.parse(["install-integration", "codex"]) == .installIntegration(.codex))
     #expect(try CommandLineRequest.parse(["hook", "codex", "Stop"]) == .hook(.codex, "Stop"))
     #expect(try CommandLineRequest.parse(["hook", "antigravity", "PreInvocation"])
             == .hook(.antigravity, "PreInvocation"))

@@ -68,6 +68,9 @@ struct KeyboardSettingsView: View {
             if let agentStateError = model.agentStateError {
                 SettingsNotice(text: agentStateError, isError: true)
             }
+            if let notice = model.agentStateNotice {
+                SettingsNotice(text: notice, isError: false)
+            }
             if let diagnosticsError = model.diagnosticsError {
                 SettingsNotice(text: diagnosticsError, isError: true)
             }

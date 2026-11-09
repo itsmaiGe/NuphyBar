@@ -40,11 +40,11 @@ public struct IntegrationInstaller: Sendable {
         case .codex:
             try enableCodexHooksFeature()
             try mergeHooks(at: codexHooksURL, provider: provider, events: [
-                "UserPromptSubmit", "PreToolUse", "PermissionRequest", "PostToolUse", "Stop", "SessionEnd",
+                "UserPromptSubmit", "PreToolUse", "PermissionRequest", "PostToolUse", "Stop", "SessionEnd", "Interrupt",
             ])
         case .claudeCode:
             try mergeHooks(at: claudeSettingsURL, provider: provider, events: [
-                "UserPromptSubmit", "PermissionRequest", "PostToolUse", "Notification", "Stop", "SessionEnd",
+                "UserPromptSubmit", "PermissionRequest", "PostToolUse", "Notification", "Stop", "StopFailure", "SessionEnd",
             ], matchers: ["Notification": "agent_needs_input|elicitation_dialog"])
         case .openCode:
             try writeOpenCodePlugin()
@@ -116,7 +116,7 @@ public struct IntegrationInstaller: Sendable {
         guard provider == .codex else { return true }
 
         let keys = codexHookTrustKeys()
-        guard keys.count == 6,
+        guard keys.count == 7,
               let config = try? String(contentsOf: resolvedURL(codexConfigURL), encoding: .utf8)
         else { return false }
         return keys.allSatisfy { configContainsTrustedHook($0, config: config) }
@@ -296,7 +296,7 @@ public struct IntegrationInstaller: Sendable {
                 "hooks": [[
                     "type": "command",
                     "command": command(provider: provider, event: event),
-                    "timeout": provider == .codex && event == "SessionEnd" ? 3 : 10,
+                    "timeout": provider == .codex && ["SessionEnd", "Interrupt"].contains(event) ? 3 : 10,
                 ]],
             ]
             if let matcher = matchers[event] {
@@ -369,6 +369,7 @@ public struct IntegrationInstaller: Sendable {
             ("PostToolUse", "post_tool_use"),
             ("Stop", "stop"),
             ("SessionEnd", "session_end"),
+            ("Interrupt", "interrupt"),
         ]
         let sourcePath = resolvedURL(codexHooksURL).path
         var keys: [String] = []

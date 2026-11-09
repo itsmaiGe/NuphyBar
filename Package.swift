@@ -38,7 +38,7 @@ let package = Package(
             name: "AgentLightAppTests",
             dependencies: ["AgentLightApp", "AgentLightCore"]
         ),
-        .testTarget(name: "AgentLightCoreTests", dependencies: ["AgentLightCore"]),
+        .testTarget(name: "AgentLightCoreTests", dependencies: ["AgentLightCore"], exclude: ["Fixtures"]),
         .testTarget(name: "AgentLightHIDTests", dependencies: ["AgentLightHID"]),
     ]
 )

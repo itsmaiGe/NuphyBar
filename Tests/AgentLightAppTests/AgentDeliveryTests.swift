@@ -134,3 +134,82 @@ func bluetoothStaysChangeDriven() throws {
     delivery.finish(first, succeeded: true, now: 0)
     #expect(delivery.begin(now: 3600) == nil)
 }
+
+@Test("a completed green write must not suppress restoring the previously accepted state",
+      arguments: [AgentLightCommand.idle, .working])
+func completedWriteMustRestorePreviousTarget(restored: AgentLightCommand) throws {
+    var delivery = readyDelivery()
+    delivery.update(command: restored, revision: 1)
+    let initial = try begin(&delivery)
+    delivery.finish(initial, succeeded: true)
+
+    delivery.update(command: .complete, revision: 2)
+    let green = try begin(&delivery)
+    #expect(green.target.command == .complete)
+    delivery.update(command: restored, revision: 3)
+    #expect(delivery.begin() == nil)
+
+    // The keyboard accepted green even though the desired target changed during the write.
+    delivery.finish(green, succeeded: true)
+    #expect(delivery.inFlight == nil)
+    let correction = delivery.begin()
+    #expect(correction?.target.command == restored)
+}
+
+@Test("a revision-only update during a successful write does not repeat the same command")
+func revisionOnlyChangeKeepsSuccessfulCommand() throws {
+    var delivery = readyDelivery()
+    delivery.update(command: .idle, revision: 1)
+    let initial = try begin(&delivery)
+    delivery.finish(initial, succeeded: true)
+
+    delivery.update(command: .complete, revision: 2)
+    let green = try begin(&delivery)
+    delivery.update(command: .complete, revision: 3)
+    delivery.finish(green, succeeded: true)
+    #expect(delivery.begin() == nil)
+}
+
+@Test("an obsolete callback cannot replace the newest successful wire state")
+func obsoleteCallbackKeepsLatestAcceptance() throws {
+    var delivery = readyDelivery()
+    let old = try begin(&delivery)
+    delivery.finish(old, succeeded: true)
+    delivery.update(command: .complete, revision: 2)
+    let green = try begin(&delivery)
+    delivery.finish(green, succeeded: true)
+    let accepted = delivery.finish(old, succeeded: true)
+    #expect(!accepted)
+    #expect(delivery.accepted == green)
+    #expect(delivery.begin() == nil)
+}
+
+@Test("successful revision-only writes restart the USB renewal clock")
+func revisionOnlySuccessRenewsUSBClock() throws {
+    var delivery = readyDelivery()
+    let first = try begin(&delivery)
+    delivery.update(command: .working, revision: 2)
+    delivery.finish(first, succeeded: true, now: 100)
+    #expect(delivery.begin(refreshInterval: 300, now: 399) == nil)
+    #expect(delivery.begin(refreshInterval: 300, now: 400)?.target.command == .working)
+}
+
+@Test("repeated green races always restore the latest target without duplicate writes")
+func repeatedCompletionRaces() throws {
+    var delivery = readyDelivery()
+    delivery.update(command: .idle, revision: 0)
+    let initial = try begin(&delivery)
+    delivery.finish(initial, succeeded: true)
+    for iteration in 1...1_000 {
+        let base = UInt64(iteration * 3)
+        delivery.update(command: .complete, revision: base)
+        let green = try begin(&delivery)
+        delivery.update(command: .idle, revision: base + 1)
+        delivery.finish(green, succeeded: true)
+        let idle = try begin(&delivery)
+        #expect(idle.target.command == .idle)
+        delivery.update(command: .idle, revision: base + 2)
+        delivery.finish(idle, succeeded: true)
+        #expect(delivery.begin() == nil)
+    }
+}
